@@ -353,58 +353,32 @@ def starting_test(solar_values,old_abundances,parameters=['teff','logg','monh','
         vrad_r=['rv'+x[4:]+'_r' for x in vrad]
         radial_velocities=[shift[x] for x in vrad]
         if len (radial_velocities):
-            if cluster:
-                for rad,rad_r in zip(vrad,vrad_r):
-                    if not np.isnan(old_abundances['red_rv_ccd'][vrad.index(rad)]):
-                        mean=float(old_abundances['red_rv_ccd'][vrad.index(rad)])
-                    elif not np.isnan(old_abundances['red_rv_com']):
-                        mean=float(old_abundances['red_rv_com'])
-                    else:
-                        break
-                    if not np.isnan(old_abundances['red_e_rv_ccd'][vrad.index(rad)]):
-                        sig=float(old_abundances['red_e_rv_ccd'][vrad.index(rad)])*3
-        
-                    elif not np.isnan(old_abundances['red_e_rv_com']):
-                        sig=float(old_abundances['red_e_rv_com'])*3
-                    else:
-                        sig=5
-                    if abs(shift[rad]-mean)>sig+2:
-                        print(rad,' is wrong by ',str(float(abs(shift[rad]-old_abundances['red_rv_com']))))
-                        return False
-                if np.count_nonzero(~np.isnan(radial_velocities))>1.0:
-                    if max(radial_velocities)-min(radial_velocities)>(np.nanmax(radial_velocities)-np.nanmin(radial_velocities))*4:
-                        print('radial velocities too different')
-                        return False
+            for rad,rad_r in zip(vrad,vrad_r):
+                if not np.isnan(old_abundances['red_rv_ccd'][vrad.index(rad)]):
+                    mean=float(old_abundances['red_rv_ccd'][vrad.index(rad)])
+                elif not np.isnan(old_abundances['red_rv_com']):
+                    mean=float(old_abundances['red_rv_com'])
                 else:
-                    if max(radial_velocities)-min(radial_velocities)>5.0:
-                        print('radial velocities too different')
-                        return False
+                    break
+                if not np.isnan(old_abundances['red_e_rv_ccd'][vrad.index(rad)]):
+                    sig=float(old_abundances['red_e_rv_ccd'][vrad.index(rad)])*3
+    
+                elif not np.isnan(old_abundances['red_e_rv_com']):
+                    sig=float(old_abundances['red_e_rv_com'])*3
+                else:
+                    sig=5
+                if abs(shift[rad]-mean)>sig+2:
+                    print(rad,' is wrong by ',str(float(abs(shift[rad]-old_abundances['red_rv_com']))))
+                    return False
+            if np.count_nonzero(~np.isnan(radial_velocities))>1.0:
+                if max(radial_velocities)-min(radial_velocities)>(np.nanmax(radial_velocities)-np.nanmin(radial_velocities))*4:
+                    print('radial velocities too different')
+                    return False
             else:
-                for rad,rad_r in zip(vrad,vrad_r):
-                    if not np.isnan(old_abundances['rv'][vrad.index(rad)]):
-                        mean=float(old_abundances['rv'][vrad.index(rad)])
-                    elif not np.isnan(old_abundances['rv_com']):
-                        mean=float(old_abundances['rv_com'])
-                    else:
-                        break
-                    if not np.isnan(old_abundances['e_rv'][vrad.index(rad)]):
-                        sig=float(old_abundances['e_rv'][vrad.index(rad)])*3
-        
-                    elif not np.isnan(old_abundances['e_rv_com']):
-                        sig=float(old_abundances['e_rv_com'])*3
-                    else:
-                        sig=5
-                    if abs(shift[rad]-mean)>sig+2:
-                        print(rad,' is wrong by ',str(float(abs(shift[rad]-old_abundances['rv_com']))))
-                        return False
-                if np.count_nonzero(~np.isnan(radial_velocities))>1.0:
-                    if max(radial_velocities)-min(radial_velocities)>np.nanmax(radial_velocities)-np.nanmin(radial_velocities)+np.nanmax(old_abundances['e_rv']):
-                        print('radial velocities too different')
-                        return False
-                else:
-                    if max(radial_velocities)-min(radial_velocities)>5.0:
-                        print('radial velocities too different')
-                        return False
+                if max(radial_velocities)-min(radial_velocities)>5.0:
+                    print('radial velocities too different')
+                    return False
+
         return True
 def equalize_resolution(wavelength,res_map,observed_spectra,observed_error,hermes, r='lowest', precision=0.005, kernel='galah',synthetic=False):
     """
@@ -803,25 +777,27 @@ class individual_spectrum:
 
                     
                 else:
-                    self.teff=float(old_abundances['teff_r'])
-                    self.vmic=float(old_abundances['vmic_r'])
-                    self.vsini=float(old_abundances['vbroad_r'])
-                    self.Fe=float(old_abundances['fe_h_r'])
-                    self.fe_h=float(old_abundances['fe_h_r'])
-
-                    self.alpha=float(old_abundances['alpha_fe_r'])
-                    if not np.isnan(float(old_abundances['rv'][count-1])):
-                        self.vrad=float(old_abundances['rv'][count-1])
-                    elif not np.isnan(float(old_abundances['rv_com'])):
-                        self.vrad=float(old_abundances['rv_com'])
+                    self.teff=float(old_abundances['teff_spectroscopic'])
+                    self.vmic=float(old_abundances['vmic'])
+                    self.vsini=float(old_abundances['vsini'])
+                    self.Fe=float(old_abundances['fe_h'])
+                    self.fe_h=float(old_abundances['fe_h'])
+                    if not np.isnan(old_abundances['red_rv_ccd'][count-1]):
+                        self.vrad=old_abundances['red_rv_ccd'][count-1]
+                    elif not np.isnan(float(old_abundances['red_rv_com'])):
+                        self.vrad=float(old_abundances['red_rv_com'])
                     else:
                         self.vrad=0.0
                     self.vmac=6.0
-                    self.logg=float(old_abundances['logg_r'])
-                    self.monh=float(old_abundances['fe_h_r'])
+                    self.logg=float(old_abundances['logg_photometric'])
+                    self.monh=float(old_abundances['fe_h'])
                     elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
                     for individual_element in elements:
-                        setattr(self,individual_element,0.0)
+                        if not isinstance(old_abundances[individual_element.lower()+'_fe'],np.float32):
+                            setattr(self,individual_element,0.0)
+                        else:
+                            setattr(self,individual_element,old_abundances[individual_element.lower()+'_fe'])
+
 
                 if hermes[1].header.get('TEFF_R')=='None' or hermes[1].header.get('LOGG_R')=='None':
                     print('Warning the reduction didnt produce an TEFF spectra might not reduce properly')
@@ -1273,11 +1249,11 @@ class spectrum_all:
             if not multi:
                 for x in colours:       
                     solar_values=self.solar_value_maker(shift,x)
-                    spectrum = payne_sythesize(solar_values,rgetattr(self,x+'.x_min'),rgetattr(self,x+'.x_max'),rgetattr(self,x+'.NN_coeff'))
+                    dopler_shifted_spectra = payne_sythesize(solar_values,rgetattr(self,x+'.x_min'),rgetattr(self,x+'.x_max'),rgetattr(self,x+'.NN_coeff'))
                     if 'vrad_'+x in shift:
-                        dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),shift['vrad_'+x],synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=spectrum)
+                        dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),shift['vrad_'+x],synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=dopler_shifted_spectra)
                     else:
-                        dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),rgetattr(self,x+'.vrad'),synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=spectrum)
+                        dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),rgetattr(self,x+'.vrad'),synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=dopler_shifted_spectra)
                     if rgetattr(self,x+'.l_new') is None:
                         dopler_shifted_spectra,l_new,kernel=synth_resolution_degradation(
                             wave_synth=dopler_shifted_synth_wave,
@@ -1297,7 +1273,7 @@ class spectrum_all:
                             wave_original=rgetattr(self,x+'.wave'),
                             l_new_premade=rgetattr(self,x+'.l_new'),
                             kernel_=rgetattr(self,x+'.kernel'))
-                    dopler_shifted_spectra=scipy.interpolate.CubicSpline(dopler_shifted_synth_wave,spectrum)(rgetattr(self,x+'.wave'))
+                    dopler_shifted_spectra=scipy.interpolate.CubicSpline(dopler_shifted_synth_wave,dopler_shifted_spectra)(rgetattr(self,x+'.wave'))
                     rsetattr(self,x+'.synth',dopler_shifted_spectra)
             else:
                 with Pool(4) as pool:
@@ -1341,14 +1317,14 @@ class spectrum_all:
                     for number,x in enumerate(colours):       
                         solar_values=self.solar_value_maker(shift,x)
     
-                        spectrum = payne_sythesize(solar_values,rgetattr(self,x+'.x_min'),rgetattr(self,x+'.x_max'),rgetattr(self,x+'.NN_coeff'))
+                        dopler_shifted_spectra = payne_sythesize(solar_values,rgetattr(self,x+'.x_min'),rgetattr(self,x+'.x_max'),rgetattr(self,x+'.NN_coeff'))
                         if full:
                             returning_spectra[number]=spectrum
                             continue                   
                         if 'vrad_'+x in shift:
-                            dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),shift['vrad_'+x],synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=spectrum)
+                            dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),shift['vrad_'+x],synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=dopler_shifted_spectra)
                         else:
-                            dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),rgetattr(self,x+'.vrad'),synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=spectrum)
+                            dopler_shifted_synth_wave,spectrum_shifted=dopler(rgetattr(self,x+'.wave'),rgetattr(self,x+'.vrad'),synthetic_wavelength=rgetattr(self,x+'.wave_synth'),synthetic_spectra=dopler_shifted_spectra)
                         if rgetattr(self,x+'.l_new') is None:
                             dopler_shifted_spectra,l_new,kernel=synth_resolution_degradation(
                                 wave_synth=dopler_shifted_synth_wave,
@@ -1368,7 +1344,7 @@ class spectrum_all:
                                 wave_original=rgetattr(self,x+'.wave'),
                                 l_new_premade=rgetattr(self,x+'.l_new'),
                                 kernel_=rgetattr(self,x+'.kernel'))
-                        dopler_shifted_spectra=scipy.interpolate.CubicSpline(dopler_shifted_synth_wave,spectrum)(rgetattr(self,x+'.wave'))
+                        dopler_shifted_spectra=scipy.interpolate.CubicSpline(dopler_shifted_synth_wave,dopler_shifted_spectra)(rgetattr(self,x+'.wave'))
                         returning_spectra[number]=dopler_shifted_spectra
                     return returning_spectra
             else :
@@ -1978,8 +1954,8 @@ def spread_masks(orginal_masks,spread=2):
                 masks_temp[x]=0
     return masks_temp
 
-labels=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']  
 colours_dict={'Blue':0,'Red':1,'Green':2,'IR':3}
+labels=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']  
 
 open_cluster_sobject_id=np.loadtxt('target_sobject_id.txt',delimiter=',',dtype=str)
 
@@ -1996,7 +1972,7 @@ global all_reduced_data
 all_reduced_data=fits.getdata('dr6.1.fits',1)
 all_reduced_data=Table(all_reduced_data)
 global x_min,x_max
-tmp = np.load("NN_normalized_spectra_all_elements_2_Blue.npz")     
+tmp = np.load("NN_normalized_spectra_all_elements_2_Blue.npz")   
 labels_with_limits=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 
 # votable = parse(cluster_name+"_cross_galah_light.xml")
@@ -2021,6 +1997,34 @@ large_data_GALAH_official_unchanged=large_data_GALAH_official[1].data
 large_data_GALAH_official=Table(large_data_GALAH_official[1].data)
 nwalkers=22
 
+spectras=spectrum_all(photometric_data['sobject_id'][0],cluster=True)
+old_abundances=spectras.old_abundances
+ 
+colours=spectras.bands
+reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
+
+# if reduction_status:
+#       print('reduction failed will skip'+str(name)+ 'for now')
+#       continue
+
+
+parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+
+spectras.spread_number=10
+
+full_parameters=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']
+parameters=['teff','logg','monh','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']
+
+# log_posterior(a[0],parameters,fe_hold=True)
+# name=cross_data['sobject_id'][0]
+# spectras=spectrum_all(name,10,cluster=False)
+# spectras.synthesize()
+# spectras.limit_array()
+# spectras.normalize()
+# spectras.create_masks()
+# spectras.plot(masks=True)
+
+
 
 parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
@@ -2028,216 +2032,272 @@ parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','M
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 
 nwalkers=len(parameters)*2
-prior=True
-ncpu=36
-for star in photometric_data[::-1]:
-    name=star['sobject_id']
-    # name=photometric_data[0]['sobject_id']
-    filename = cluster_name+'_reduction/prior_reduced_elements_fixed_'+str(name)
-    if not name in all_reduced_data['sobject_id']:
-         print('hasnt been reduced ' + str(name))
-         continue
-    if os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5'):
-          print('already done '+ str(name))
-          continue
-    
-    spectras=spectrum_all(name,cluster=True)
-    spectras.synthesize()
-    print(filename)
-    old_abundances=spectras.old_abundances
-    if prior:
-        fast_abundances=np.vstack((np.ma.getdata(old_abundances['teff_raw']),np.ma.getdata(old_abundances['logg_raw']),np.ma.getdata(old_abundances['e_teff_raw']),np.ma.getdata(old_abundances['e_logg_raw'])))
-        fast_coefficients=np.ma.getdata(old_abundances['coeff'])
-    colours=spectras.bands
-    reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
-    
-    if reduction_status:
-          print('reduction failed will skip'+str(name)+ 'for now')
-          continue
-    shift_radial={}
-    for col in colours:
-        logs=[]
-        if not np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]):
-            mean=float(old_abundances['red_rv_ccd'][colours_dict[col]])
-        elif not np.isnan(old_abundances['red_rv_com']):
-            mean=float(old_abundances['red_rv_com'])
-        else:
-            break
-        if not np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]):
-            sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
-    
-        elif not np.isnan(old_abundances['red_e_rv_com']):
-            sig=float(old_abundances['red_e_rv_com'])*3
-        else:
-            sig=5
-        num=int(np.ceil(sig*80))
-        lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
-        lin_vrad_pool=[[x] for x in lin_vrad]
-        # for x in lin_vrad_pool:
-        #     logs.append(log_posterior(x,['vrad_'+col]))
-        with Pool(processes=ncpu) as pool:
-            logs=pool.map(partial(log_posterior,parameters=['vrad_'+col]),lin_vrad_pool)
-        shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
-    spectras.mass_setter(shift_radial)
-    pos_short=starter_walkers_maker(nwalkers,old_abundances,parameters_no_vrad,cluster=True)
-    ndim=np.shape(pos_short)[1]
-    nwalkers=np.shape(pos_short)[0]
-    backend = emcee.backends.HDFBackend(filename)
-    backend.reset(nwalkers, ndim)
-    
-    first_try=True
-    step_iteration=20
-    important_lines, important_molecules = load_dr3_lines()
-        
+prior=False
+# for star in photometric_data:
+#     name=star['sobject_id']
+# name=photometric_data[0]['sobject_id']
+name=160106001601294
+filename = cluster_name+'_reduction/no_prior_'+str(name)
+# if not name in all_reduced_data['sobject_id']:
+#  	print('hasnt been reduced ' + str(name))
+#  	continue
+# if os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5'):
+#       print('already done '+ str(name))
+#       continue
+ncpu=10
+spectras=spectrum_all(name,cluster=False)
+spectras.synthesize()
+spectras.normalize()
+spectras.create_masks(limits=[5,0.3])
+# blue_mask=spectras.Blue.masked_area
+# plt.figure()
+# plt.plot(spectras.Blue.wave,spectras.Blue.synth*blue_mask)
+# synthetic_spectra=spectras.Blue.synth
+# uncs=spectras.Blue.uncs
+# observed_spectra=spectras.Blue.spec
+# masks=spectras.Blue.masks
+# vital_lines=spectras.Blue.vital_lines
+# original_wavelength_strenched=spectras.Blue.wave
+# v_rad=spectras.Blue.vrad
+# c=299792.458
+# delta_v=v_rad/c
+# wave_opt=original_wavelength_strenched*(1-delta_v)
+# limits=[5,0.3]
+
+# masks_bad_spectra=(
+#     (
+#         # Not too large difference between obs and synthesis
+#         (~((np.abs(synthetic_spectra-observed_spectra)/uncs > limits[0]) & (np.abs(synthetic_spectra-observed_spectra) > limits[1])))
+#         # Not in unreliable synthesis region
+#     ) |
+#     # or is in vital line wavelengths
+#     np.any(np.array([((wave_opt >= line_beginning) & (wave_opt <= line_end)) for (line_beginning, line_end) in zip(vital_lines['line_begin'],vital_lines['line_end'])]),axis=0)
+# )
+
+# masks_bad_spectra_temp=[]
+# for y in masks_bad_spectra:
+#     if y:
+#         masks_bad_spectra_temp.append(1)
+#     else:
+#         masks_bad_spectra_temp.append(0)
+# masks_bad_spectra_spread=spread_masks(masks_bad_spectra_temp,3)
+# # masks_bad_spectra_spread=np.ones(len(masks_bad_spectra_spread))-masks_bad_spectra_spread
+# masks_bad_spectra_spread=[bool(x) for x in masks_bad_spectra_spread]
+# overall_masks=(
+#     (
+#         # Not too large difference between obs and synthesis
+#         (np.array(masks_bad_spectra_spread))&
+#         # Not in unreliable synthesis region
+#         (~np.any(np.array([((wave_opt >= mask_beginning) & (wave_opt <= mask_end)) for (mask_beginning, mask_end) in zip(masks['mask_begin'],masks['mask_end'])]),axis=0))
+#     ) |
+#     # or is in vital line wavelengths
+#     np.any(np.array([((wave_opt >= line_beginning) & (wave_opt <= line_end)) for (line_beginning, line_end) in zip(vital_lines['line_begin'],vital_lines['line_end'])]),axis=0)
+# )
+# overall_masks_temp=[]
+# for y in overall_masks:
+#     if y:
+#         overall_masks_temp.append(1)
+#     else:
+#         overall_masks_temp.append(0)
+  
+
+
+print(filename)
+old_abundances=spectras.old_abundances
+if prior:
+    fast_abundances=np.vstack((np.ma.getdata(old_abundances['teff_raw']),np.ma.getdata(old_abundances['logg_raw']),np.ma.getdata(old_abundances['e_teff_raw']),np.ma.getdata(old_abundances['e_logg_raw'])))
+    fast_coefficients=np.ma.getdata(old_abundances['coeff'])
+colours=spectras.bands
+reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
+
+# if reduction_status:
+#       print('reduction failed will skip'+str(name)+ 'for now')
+#       continue
+shift_radial={}
+for col in colours:
+    logs=[]
+    if not np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]):
+        mean=float(old_abundances['red_rv_ccd'][colours_dict[col]])
+    elif not np.isnan(old_abundances['red_rv_com']):
+        mean=float(old_abundances['red_rv_com'])
+    else:
+        break
+    if not np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]):
+        sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
+
+    elif not np.isnan(old_abundances['red_e_rv_com']):
+        sig=float(old_abundances['red_e_rv_com'])*3
+    else:
+        sig=5
+    num=int(np.ceil(sig*80))
+    lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
+    lin_vrad_pool=[[x] for x in lin_vrad]
+    # for x in lin_vrad_pool:
+    #     logs.append(log_posterior(x,['vrad_'+col]))
     with Pool(processes=ncpu) as pool:
-        backend = emcee.backends.HDFBackend(filename+'_radial_velocities.h5')
-        backend.reset(nwalkers, ndim)
-        
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,True,parameters])
-        
-        
-        autocorr=[]
-        index=0
-        oldTau=np.inf
-        old_mean=[]
-        old_standard_deviation=[]
-        
-        for sample in sampler.sample(pos_short,iterations=40, progress=True):
-            if sampler.iteration % step_iteration:
-                    continue
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
-        
-        synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
-        normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
-        normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
-        normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp)
-        
-        normalized_limit_array=[np.array(x)*np.array(y) for (x,y) in zip(normalized_limit_array,normalized_mask)]
-        
-        
-        
-        elem_good=[]
-        for param in parameters_no_vrad:
-            if param in elements:
-                shift_temp_2=copy.copy(shift_temp)
-                shift_temp_2[param]=x_min[param]
-                solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                low_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,first_try=normalized_limit_array,full_parameters=parameters)
-                shift_temp_2[param]=x_max[param]
-                solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,first_try=normalized_limit_array,full_parameters=parameters)
-                change=abs(high_value-low_value)
-                if change>50:
-                    elem_good.append(param)
-        parameters_no_vrad=parameters_no_elements[:5]
-        parameters_no_vrad=np.hstack((parameters_no_vrad,elem_good))
-        print('will be optimising ' + str(len(parameters_no_vrad))+' parameters')
-        print(parameters_no_vrad)
-        np.save(filename+'_tags.npy',parameters_no_vrad)
-        pos_long=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
-        nwalkers=np.shape(pos_long)[0]
-        ndim=np.shape(pos_long)[1]
-        
-        backend = emcee.backends.HDFBackend(filename+'_all_elements.h5')
-        backend.reset(nwalkers, ndim)
-        
-#        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,args=[parameters_no_vrad,prior,normalized_limit_array,parameters],a=5)
-#        for sample in sampler.sample(pos_long,iterations=100, progress=True):
-#            if sampler.iteration % step_iteration:
-#                    continue
-#        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=0),axis=0),parameters_no_elements,False,parameters)   
-#        synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
-#        normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
-#        normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
-#        normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp,limits=[2,0.1])
-#        end_clips=[np.hstack((np.zeros(10),np.ones(len(y)-20),np.zeros(10))) for y in normalized_limit_array]
+        logs=pool.map(partial(log_posterior,parameters=['vrad_'+col]),lin_vrad_pool)
+    shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
+spectras.mass_setter(shift_radial)
+pos_short=starter_walkers_maker(nwalkers,old_abundances,parameters_no_vrad,cluster=False)
+ndim=np.shape(pos_short)[1]
+nwalkers=np.shape(pos_short)[0]
+backend = emcee.backends.HDFBackend(filename)
+backend.reset(nwalkers, ndim)
 
-#        normalized_limit_array=[np.array(x)*np.array(y)*np.array(z) for (x,y,z) in zip(normalized_limit_array,normalized_mask,end_clips)]       
+first_try=True
+step_iteration=20
+important_lines, important_molecules = load_dr3_lines()
+    
+# with Pool(processes=ncpu) as pool:
+#     backend = emcee.backends.HDFBackend(filename+'_radial_velocities.h5')
+#     backend.reset(nwalkers, ndim)
+    
+#     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,True,parameters])
+    
+    
+#     autocorr=[]
+#     index=0
+#     oldTau=np.inf
+#     old_mean=[]
+#     old_standard_deviation=[]
+    
+#     for sample in sampler.sample(pos_short,iterations=40, progress=True):
+#         if sampler.iteration % step_iteration:
+#                 continue
+#     shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
+    
+#     synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
+#     normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
+#     normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
+#     normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp)
+    
+#     normalized_limit_array=[np.array(x)*np.array(y) for (x,y) in zip(normalized_limit_array,normalized_mask)]
+    
+#     elem_good=[]
+#     for param in parameters_no_vrad:
+#         if param in elements:
+#             x_fe=param
+#             # shift_temp_2=copy.copy(shift_temp)
+#             # shift_temp_2[param]=x_min[param]
+#             # solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
+#             # low_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,first_try=normalized_limit_array,full_parameters=parameters)
+#             # shift_temp_2[param]=x_max[param]
+#             # solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
+#             # high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,first_try=normalized_limit_array,full_parameters=parameters)
+#             # change=abs(high_value-low_value)
+#             if change>50:
+#                 elem_good.append(param)
+#     parameters_no_vrad=parameters_no_elements[:5]
+#     parameters_no_vrad=np.hstack((parameters_no_vrad,elem_good))
+#     print('will be optimising ' + str(len(parameters_no_vrad))+' parameters')
+#     print(parameters_no_vrad)
+#     np.save(filename+'_tags.npy',parameters_no_vrad)
+#     pos_long=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
+#     nwalkers=np.shape(pos_long)[0]
+#     ndim=np.shape(pos_long)[1]
+    
+#     backend = emcee.backends.HDFBackend(filename+'_all_elements.h5')
+#     backend.reset(nwalkers, ndim)
+    
+# #        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,args=[parameters_no_vrad,prior,normalized_limit_array,parameters],a=5)
+# #        for sample in sampler.sample(pos_long,iterations=100, progress=True):
+# #            if sampler.iteration % step_iteration:
+# #                    continue
+# #        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=0),axis=0),parameters_no_elements,False,parameters)   
+# #        synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
+# #        normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
+# #        normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
+# #        normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp,limits=[2,0.1])
+# #        end_clips=[np.hstack((np.zeros(10),np.ones(len(y)-20),np.zeros(10))) for y in normalized_limit_array]
 
-#        pos_long=sampler.get_chain()[-1]        
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,normalized_limit_array,parameters])
-        
-        
-        autocorr=[]
-        index=0
-        oldTau=np.ones(ndim)*np.inf
-        old_mean=[]
-        old_standard_deviation=[]
-        # sampler.run_mcmc()
-        for sample in sampler.sample(pos_long,iterations=1200, progress=True):
-            if sampler.iteration % step_iteration:
-                    continue
-            tau=sampler.get_autocorr_time(tol=0)
-            if not np.any(np.isnan(tau)):
-                autocorr.append(tau)
-                converged = np.all(tau[:5] * 10 < sampler.iteration)
-                print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_no_vrad[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
-                converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.15)
-                print(sampler.iteration/tau)
-                if converged:
-                    break
-                oldTau = tau
-        unmasked_opt=[]
-        normalized_limit_array=np.hstack(normalized_limit_array)
-        for x in normalized_limit_array:
-            if x:
-                unmasked_opt.append(True)
-            else:
-                unmasked_opt.append(False)
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=sampler.iteration//2),axis=0),parameters_no_vrad,False,parameters)   
-        spectras.mass_setter(shift=shift_temp)
-        
-        spectras.synthesize(shift_temp)
-        spectras.normalize()
-        bands=spectras.bands
-        c=299792.458
-        
-        synth_spectras=[]
-        wave=[]
-        obs=[]
-        uncs=[]
-        for col in bands:
-            synth_spectras.append(rgetattr(spectras, col+'.synth'))
-            wave_temp=rgetattr(spectras, col+'.wave')
-            vrad=rgetattr(spectras, col+'.vrad')
-            wave.append(wave_temp*(1-vrad/c))
-            obs.append(rgetattr(spectras, col+'.spec'))
-            uncs.append(rgetattr(spectras, col+'.uncs'))
-        uncs=np.hstack(uncs)
-        obs=np.hstack(obs)
-        wave=np.hstack(wave)
-        synth_spectras=np.hstack(synth_spectras)  
-        
-        info_line_1=str(name)
-        
-        info_line_2= 'Teff='+str(int(shift_temp['teff']))+'K, '+ \
-                'logg='+str(np.round(shift_temp['logg'],decimals=2))+', '+ \
-                '[Fe/H]='+str(np.round(shift_temp['fe_h'],decimals=2))+', '+ \
-                'vmic='+str(np.round(shift_temp['vmic'],decimals=2))+'km/s, '+ \
-                'vsini='+str(np.round(shift_temp['vsini'],decimals=1))+'km/s'
-        
-        info_line_3='rv Blue='+ str(np.round(shift_radial['vrad_Blue'],decimals=2))+'km/s, ' +\
-                'rv Green='+ str(np.round(shift_radial['vrad_Green'],decimals=2))+'km/s, ' +\
-                'rv Red='+ str(np.round(shift_radial['vrad_Red'],decimals=2))+'km/s, ' +\
-                'rv IR='+ str(np.round(shift_radial['vrad_IR'],decimals=2))+'km/s'
-        fig=plot_spectrum(
-            wave,
-            [
-                obs,
-                synth_spectras
-            ],
-            uncs,
-            ~np.array(unmasked_opt),
-            info_line_1,
-            info_line_2,
-            info_line_3,
-            important_lines=important_lines
-        )
-        
-        file_directory = cluster_name+'_reduction/plots/'
-        Path(file_directory).mkdir(parents=True, exist_ok=True)
-        file_directory+='prior_reduced_elements_fixed_'
-        fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
+# #        normalized_limit_array=[np.array(x)*np.array(y)*np.array(z) for (x,y,z) in zip(normalized_limit_array,normalized_mask,end_clips)]       
+
+# #        pos_long=sampler.get_chain()[-1]        
+#     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,normalized_limit_array,parameters])
+    
+    
+#     autocorr=[]
+#     index=0
+#     oldTau=np.ones(ndim)*np.inf
+#     old_mean=[]
+#     old_standard_deviation=[]
+#     # sampler.run_mcmc()
+#     for sample in sampler.sample(pos_long,iterations=1200, progress=True):
+#         if sampler.iteration % step_iteration:
+#                 continue
+#         tau=sampler.get_autocorr_time(tol=0)
+#         if not np.any(np.isnan(tau)):
+#             autocorr.append(tau)
+#             converged = np.all(tau[:5] * 10 < sampler.iteration)
+#             print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_no_vrad[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
+#             converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.15)
+#             print(sampler.iteration/tau)
+#             if converged:
+#                 break
+#             oldTau = tau
+#     unmasked_opt=[]
+#     normalized_limit_array=np.hstack(normalized_limit_array)
+#     for x in normalized_limit_array:
+#         if x:
+#             unmasked_opt.append(True)
+#         else:
+#             unmasked_opt.append(False)
+#     shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=sampler.iteration//2),axis=0),parameters_no_vrad,False,parameters)   
+#     spectras.mass_setter(shift=shift_temp)
+    
+#     spectras.synthesize(shift_temp)
+#     spectras.normalize()
+#     bands=spectras.bands
+#     c=299792.458
+    
+#     synth_spectras=[]
+#     wave=[]
+#     obs=[]
+#     uncs=[]
+#     for col in bands:
+#         synth_spectras.append(rgetattr(spectras, col+'.synth'))
+#         wave_temp=rgetattr(spectras, col+'.wave')
+#         vrad=rgetattr(spectras, col+'.vrad')
+#         wave.append(wave_temp*(1-vrad/c))
+#         obs.append(rgetattr(spectras, col+'.spec'))
+#         uncs.append(rgetattr(spectras, col+'.uncs'))
+#     uncs=np.hstack(uncs)
+#     obs=np.hstack(obs)
+#     wave=np.hstack(wave)
+#     synth_spectras=np.hstack(synth_spectras)  
+    
+#     info_line_1=str(name)
+    
+#     info_line_2= 'Teff='+str(int(shift_temp['teff']))+'K, '+ \
+#             'logg='+str(np.round(shift_temp['logg'],decimals=2))+', '+ \
+#             '[Fe/H]='+str(np.round(shift_temp['fe_h'],decimals=2))+', '+ \
+#             'vmic='+str(np.round(shift_temp['vmic'],decimals=2))+'km/s, '+ \
+#             'vsini='+str(np.round(shift_temp['vsini'],decimals=1))+'km/s'
+    
+#     info_line_3='rv Blue='+ str(np.round(shift_radial['vrad_Blue'],decimals=2))+'km/s, ' +\
+#             'rv Green='+ str(np.round(shift_radial['vrad_Green'],decimals=2))+'km/s, ' +\
+#             'rv Red='+ str(np.round(shift_radial['vrad_Red'],decimals=2))+'km/s, ' +\
+#             'rv IR='+ str(np.round(shift_radial['vrad_IR'],decimals=2))+'km/s'
+#     fig=plot_spectrum(
+#         wave,
+#         [
+#             obs,
+#             synth_spectras
+#         ],
+#         uncs,
+#         ~np.array(unmasked_opt),
+#         info_line_1,
+#         info_line_2,
+#         info_line_3,
+#         important_lines=important_lines
+#     )
+    
+#     file_directory = cluster_name+'_reduction/plots/'
+#     Path(file_directory).mkdir(parents=True, exist_ok=True)
+#     file_directory+='prior_reduced_elements_2_new_masks'
+#     fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
+
+
 
 # important_lines, important_molecules = load_dr3_lines()
 # for star in cross_data:
