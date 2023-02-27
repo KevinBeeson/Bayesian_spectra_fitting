@@ -684,7 +684,7 @@ def synth_resolution_degradation(wave_synth, synth,res_map,res_b,wave_original,l
 
 class individual_spectrum:
     
-    def __init__(self,name,interpolation,x,count,old_abundances,cluster=True):
+    def __init__(self,name,interpolation,x,count,old_abundances,cluster=True,starting_values='dr4'):
             limits={'Blue':[4705,4908],'Green':[5643,5879],'Red':[6470,6743],'IR':[7577.0,7894.0]}
             # spacings={'Blue':0.004,'Green':0.005,'Red':0.006,'IR':0.008}
             if x=='IR':
@@ -761,35 +761,57 @@ class individual_spectrum:
                 # hermes[1].header['CDELT1']/=interpolation
                 self.wran=[fstart,fend]
                 self.hermes=hermes
-                if cluster:
-                    self.teff=float(old_abundances['teff_spectroscopic'])
-                    self.vmic=float(old_abundances['vmic'])
-                    self.vsini=float(old_abundances['vsini'])
-                    self.Fe=float(old_abundances['fe_h'])
-                    self.fe_h=float(old_abundances['fe_h'])
-                    if not np.isnan(old_abundances['red_rv_ccd'][count-1]):
-                        self.vrad=old_abundances['red_rv_ccd'][count-1]
-                    elif not np.isnan(float(old_abundances['red_rv_com'])):
-                        self.vrad=float(old_abundances['red_rv_com'])
-                    else:
-                        self.vrad=0.0
-                    self.vmac=6.0
-                    self.logg=float(old_abundances['logg_photometric'])
-                    self.monh=float(old_abundances['fe_h'])
-                    elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-                    for individual_element in elements:
-                        if not isinstance(old_abundances[individual_element.lower()+'_fe'],np.float32):
-                            setattr(self,individual_element,0.0)
+                if starting_values=='dr4':
+                    if cluster:
+                        self.teff=float(old_abundances['teff_spectroscopic'])
+                        self.vmic=float(old_abundances['vmic'])
+                        self.vsini=float(old_abundances['vsini'])
+                        self.Fe=float(old_abundances['fe_h'])
+                        self.fe_h=float(old_abundances['fe_h'])
+                        if not np.isnan(old_abundances['red_rv_ccd'][count-1]):
+                            self.vrad=old_abundances['red_rv_ccd'][count-1]
+                        elif not np.isnan(float(old_abundances['red_rv_com'])):
+                            self.vrad=float(old_abundances['red_rv_com'])
                         else:
-                            setattr(self,individual_element,old_abundances[individual_element.lower()+'_fe'])
-
-                    
+                            self.vrad=0.0
+                        self.vmac=6.0
+                        self.logg=float(old_abundances['logg_photometric'])
+                        self.monh=float(old_abundances['fe_h'])
+                        elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+                        for individual_element in elements:
+                            if not isinstance(old_abundances[individual_element.lower()+'_fe'],np.float32):
+                                setattr(self,individual_element,0.0)
+                            else:
+                                setattr(self,individual_element,old_abundances[individual_element.lower()+'_fe'])
+    
+                        
+                    else:
+                        self.teff=float(old_abundances['teff_spectroscopic'])
+                        self.vmic=float(old_abundances['vmic'])
+                        self.vsini=float(old_abundances['vsini'])
+                        self.Fe=float(old_abundances['fe_h'])
+                        self.fe_h=float(old_abundances['fe_h'])
+                        if not np.isnan(old_abundances['red_rv_ccd'][count-1]):
+                            self.vrad=old_abundances['red_rv_ccd'][count-1]
+                        elif not np.isnan(float(old_abundances['red_rv_com'])):
+                            self.vrad=float(old_abundances['red_rv_com'])
+                        else:
+                            self.vrad=0.0
+                        self.vmac=6.0
+                        self.logg=float(old_abundances['logg_photometric'])
+                        self.monh=float(old_abundances['fe_h'])
+                        elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+                        for individual_element in elements:
+                            if not isinstance(old_abundances[individual_element.lower()+'_fe'],np.float32):
+                                setattr(self,individual_element,0.0)
+                            else:
+                                setattr(self,individual_element,old_abundances[individual_element.lower()+'_fe'])
                 else:
-                    self.teff=float(old_abundances['teff_spectroscopic'])
-                    self.vmic=float(old_abundances['vmic'])
-                    self.vsini=float(old_abundances['vsini'])
-                    self.Fe=float(old_abundances['fe_h'])
-                    self.fe_h=float(old_abundances['fe_h'])
+                    self.teff=float(old_abundances['teff_'+starting_values])
+                    self.vmic=float(old_abundances['vmic_'+starting_values])
+                    self.vsini=float(old_abundances['vsini_'+starting_values])
+                    self.Fe=float(old_abundances['fe_h_'+starting_values])
+                    self.fe_h=float(old_abundances['fe_h_'+starting_values])
                     if not np.isnan(old_abundances['red_rv_ccd'][count-1]):
                         self.vrad=old_abundances['red_rv_ccd'][count-1]
                     elif not np.isnan(float(old_abundances['red_rv_com'])):
@@ -797,15 +819,14 @@ class individual_spectrum:
                     else:
                         self.vrad=0.0
                     self.vmac=6.0
-                    self.logg=float(old_abundances['logg_photometric'])
-                    self.monh=float(old_abundances['fe_h'])
+                    self.logg=float(old_abundances['logg_'+starting_values])
+                    self.monh=float(old_abundances['fe_h_'+starting_values])
                     elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
                     for individual_element in elements:
-                        if not isinstance(old_abundances[individual_element.lower()+'_fe'],np.float32):
+                        if not isinstance(old_abundances[individual_element+'_Fe_'+starting_values],np.float32):
                             setattr(self,individual_element,0.0)
                         else:
-                            setattr(self,individual_element,old_abundances[individual_element.lower()+'_fe'])
-
+                            setattr(self,individual_element,old_abundances[individual_element+'_Fe_'+starting_values])
 
                 if hermes[1].header.get('TEFF_R')=='None' or hermes[1].header.get('LOGG_R')=='None':
                     print('Warning the reduction didnt produce an TEFF spectra might not reduce properly')
@@ -988,8 +1009,14 @@ def difference_UT_vector(date_str1,date_vector):
 class spectrum_all:
     # bands=['IR']
 
-    def __init__(self,name,interpolation=10,cluster=True,bands=None):
-        name=str(name)
+    def __init__(self,input_data,interpolation=10,cluster=True,bands=None,starting_values='dr4'):
+        if isinstance(input_data,str) or np.issubdtype(input_data,np.integer):
+            name=str(input_data)
+        elif isinstance(input_data,Table.Row):
+            name=str(input_data['sobject_id'])
+            old_abundances=input_data
+        else:
+            print('needs to be either a string sobject id string or a astropy row of the star')
         if bands==None:
             bands=['Blue','Green','Red','IR']
         self.rv_shift=1e-10
@@ -997,26 +1024,33 @@ class spectrum_all:
         self.name=name
         self.interpolation=interpolation
         self.sister_stars=None
+        self.starting_values=starting_values
         if cluster:
             mask=photometric_data['sobject_id']==np.int64(name)
-            old_abundances=photometric_data[mask]
-            old_abundances=old_abundances[0]
-            spread_temperature=np.sqrt(np.var(old_abundances['teff_raw']))
-            sig_teff=np.mean(old_abundances['e_teff_raw'])
-            spread_logg=np.sqrt(np.var(old_abundances['logg_raw']))
-            sig_logg=np.mean(old_abundances['e_logg_raw'])
-            self.spread_number=spread_temperature*spread_logg/(sig_logg*sig_teff*len(old_abundances['e_logg_raw']))
+            photometric_prior_information=photometric_data[mask]
+            photometric_prior_information=photometric_prior_information[0]
+            spread_temperature=np.sqrt(np.var(photometric_prior_information['teff_raw']))
+            sig_teff=np.mean(photometric_prior_information['e_teff_raw'])
+            spread_logg=np.sqrt(np.var(photometric_prior_information['logg_raw']))
+            sig_logg=np.mean(photometric_prior_information['e_logg_raw'])
+            self.spread_number=spread_temperature*spread_logg/(sig_logg*sig_teff*len(photometric_prior_information['e_logg_raw']))
             self.e_teff_photometric=sig_teff
             self.e_logg_photometric=sig_logg
             self.kde=None
         else:
             mask=all_reduced_data['sobject_id']==np.int64(name)
-            old_abundances=all_reduced_data[mask]
-            old_abundances=old_abundances[0]
-        self.old_abundances=old_abundances
-        
+            starting_reduction_data=all_reduced_data[mask]
+            starting_reduction_data=starting_reduction_data[0]
+        if isinstance(input_data,Table.Row):
+            starting_data=old_abundances
+        elif cluster:
+            starting_data=photometric_prior_information
+        else:
+            starting_data=starting_reduction_data
+        self.old_abundances=starting_data
+
         for count,x in enumerate(bands,1):
-            setattr(self,x,individual_spectrum(name,interpolation,x,count,old_abundances,cluster))
+            setattr(self,x,individual_spectrum(name,interpolation,x,count,starting_data,cluster,starting_values=starting_values))
         self.correct_resolution_map()
         self.equilize_spectras()
         self.limit_array()
@@ -2042,13 +2076,18 @@ elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn',
 nwalkers=len(parameters)*2
 prior=False
 ncpu=10
+
+votable = parse(cluster_name+"_reduced_elements_new.xml")
+kevins_run=votable.get_first_table().to_table(use_names_over_ids=True)
+spectras=spectrum_all(kevins_run[28],starting_values='no_prior')
+# log_posterior([6149], ['teff'])
 for star in photometric_data[::-1]:
     name=150109001001186
     # name=photometric_data[0]['sobject_id']
     filename = cluster_name+'_reduction/no_prior_reduced_elements_fixed_resolution_new_'+str(name)
     if not name in all_reduced_data['sobject_id']:
-         print('hasnt been reduced ' + str(name))
-         continue
+          print('hasnt been reduced ' + str(name))
+          continue
     if os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5'):
           print('already done '+ str(name))
           continue
