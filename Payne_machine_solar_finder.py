@@ -107,7 +107,7 @@ def getting_rid_zeros(data1,data2):
                 data1_temp.append(synthetic)
                 data2_temp.append(data_bins)
         return np.array(data1_temp),np.array(data2_temp)
-def shift_maker(solar_value,given_labels=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic'],fe_hold=False,all_labels=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']):
+def shift_maker(solar_value,given_labels=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic'],fe_hold=False,all_labels=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']):
         """
         Create a dictionary of solar parameters from an array of values
         
@@ -126,7 +126,7 @@ def shift_maker(solar_value,given_labels=['teff','logg','monh','fe_h','alpha','v
         for value,x in enumerate(all_labels):
             if x in given_labels:
                 if x=='fe_h' and fe_hold:
-                    shift[x]=shift['monh']
+                    shift[x]=shift['fe_h']
                 else:
                     shift[x]=solar_value[value-skip]
             else:
@@ -134,7 +134,7 @@ def shift_maker(solar_value,given_labels=['teff','logg','monh','fe_h','alpha','v
                 bands=spectras.bands
                 colour=[y for y in bands if y in x]
                 if x=='fe_h' and fe_hold:
-                    shift[x]=shift['monh']
+                    shift[x]=shift['fe_h']
                 elif not 'vrad' in x:
 
                     shift[x]=rgetattr(spectras,bands[0]+'.'+x)
@@ -325,7 +325,7 @@ def runGetattr(obj, attr):
     def _getattr(obj, attr):
         return getattr(obj, attr)
     return functools.reduce(_getattr, [obj] + attr.split('.'))
-def starting_test(solar_values,old_abundances,parameters=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic'],cluster=False):
+def starting_test(solar_values,old_abundances,parameters=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic'],cluster=False):
         """
         Sanity check to see if the solar values inserted passes a sanity check
     
@@ -344,18 +344,18 @@ def starting_test(solar_values,old_abundances,parameters=['teff','logg','monh','
             shift[y]=x
         labels_with_limits=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
         labels_with_limits=[x for x in labels_with_limits if x in parameters]
-        elem_big_dips=['Li','K']
-        elem_big_dips=[x for x in elem_big_dips if x in parameters]
+        # elem_big_dips=['Li','K']
+        # elem_big_dips=[x for x in elem_big_dips if x in parameters]
         for x in labels_with_limits:
             if shift[x]<x_min[x]-abs(x_min[x])*0.2 or shift[x]>x_max[x]*1.2:
                 print('outside of the models limits ',x,' value ', shift[x])
                 return False
-        for x in elem_big_dips:
-            mean=old_abundances[x.lower()+'_fe']
-            sig=old_abundances['e_'+x.lower()+'_fe']
-            if shift[x]<mean-sig*3 or shift[x]>mean+sig*3:
-                print('outside of the dip limits',x)
-                return False
+        # for x in elem_big_dips:
+        #     mean=old_abundances[x.lower()+'_fe']
+        #     sig=old_abundances['e_'+x.lower()+'_fe']
+        #     if shift[x]<mean-sig*3 or shift[x]>mean+sig*3:
+        #         print('outside of the dip limits',x)
+        #         return False
         vrad=['vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
         vrad=[x for x in vrad if x in parameters]
         vrad_r=['rv'+x[4:]+'_r' for x in vrad]
@@ -823,7 +823,7 @@ class individual_spectrum:
                     self.monh=float(old_abundances['fe_h_'+starting_values])
                     elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
                     for individual_element in elements:
-                        if not isinstance(old_abundances[individual_element+'_Fe_'+starting_values],np.float32):
+                        if not isinstance(old_abundances[individual_element+'_Fe_'+starting_values],np.float):
                             setattr(self,individual_element,0.0)
                         else:
                             setattr(self,individual_element,old_abundances[individual_element+'_Fe_'+starting_values])
@@ -1010,7 +1010,7 @@ class spectrum_all:
     # bands=['IR']
 
     def __init__(self,input_data,interpolation=10,cluster=True,bands=None,starting_values='dr4'):
-        if isinstance(input_data,str) or np.issubdtype(input_data,np.integer):
+        if isinstance(input_data,str) or isinstance(input_data,int) or np.issubdtype(input_data,np.integer):
             name=str(input_data)
         elif isinstance(input_data,Table.Row):
             name=str(input_data['sobject_id'])
@@ -1053,7 +1053,6 @@ class spectrum_all:
             setattr(self,x,individual_spectrum(name,interpolation,x,count,starting_data,cluster,starting_values=starting_values))
         self.correct_resolution_map()
         self.equilize_spectras()
-        self.limit_array()
     def equilize_spectras(self,colours=None):
         if colours==None:
             colours=self.bands
@@ -1103,7 +1102,7 @@ class spectrum_all:
                 limit_array_spread=spread_masks(limit_array,5)
                 rsetattr(self,x+'.limit',limit_array_spread)
             
-    def solar_value_maker(self,shift,colours=None,keys=['teff','logg','monh','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']):
+    def solar_value_maker(self,shift,colours=None,keys=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']):
         if colours==None:
             colours=self.bands
 
@@ -1544,11 +1543,11 @@ class spectrum_all:
             
         if not np.array_equal(data,None):
             return returning_spectra,returning_uncs
-    def gradient(self,shift={},colours=None,self_normal=True,labels=['teff','logg','monh','Fe','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']):
+    def gradient(self,shift={},colours=None,self_normal=True,labels=['teff','logg','fe_h','Fe','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']):
         if colours==None:
             colours=self.bands
-        labels_payne=['teff','logg','monh','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-        labels_payne_front=['teff','logg','monh','Fe','alpha']
+        labels_payne=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+        labels_payne_front=['teff','logg','fe_h','Fe','alpha']
         vrad_labels=['vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
         labels_payne_front_wanted=[x for x in labels_payne_front if x in labels]
         labels_payne_wanted=[x for x in labels_payne if x in labels]
@@ -1769,7 +1768,7 @@ def chebyshev(p,ye,mask):
     coef=np.polynomial.chebyshev.chebfit(p[0][mask], p[1][mask], 4)
     cont=np.polynomial.chebyshev.chebval(p[0],coef)
     return cont            
-def starter_walkers_maker(nwalkers,old_abundances,parameters=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic'],cluster=False):
+def starter_walkers_maker(nwalkers,old_abundances,parameters=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic'],cluster=False):
     """
     Creates an 9 x nwalkers dimentional array thats is a good starter posistion for the walkers 
 
@@ -1789,11 +1788,11 @@ def starter_walkers_maker(nwalkers,old_abundances,parameters=['teff','logg','mon
         label_change={'teff':'teff_spectroscopic','logg':'logg_spectroscopic','vrad_Green':'red_rv_ccd'}
     else:
         label_change={'alpha':'alpha_fe_r','fe_h':'fe_h_r','vsini':'vbroad_r','vmic':'vmic_r','vmac':'vmic_r','vrad_Blue':'rv',
-                           'vrad_Green':'rv','vrad_Red':'rv','vrad_IR':'rv','monh':'fe_h','teff':'teff_r','logg':'logg_r'}
+                           'vrad_Green':'rv','vrad_Red':'rv','vrad_IR':'rv','fe_h':'fe_h','teff':'teff_r','logg':'logg_r'}
     limits_Payne={x:[(x_max[x]+x_min[x])/2,(x_max[x]-x_min[x])/10] for x  in parameters if x in parameters_Payne}
     limits_rv={x:[0,0] for x  in parameters if not  x in parameters_Payne}
     # parameters_Payne=[x for x in parameters_Payne if x in parameters]
-    # labels=['teff','logg','monh','fe_h','alpha','vsini','vmac','vmic']
+    # labels=['teff','logg','fe_h','fe_h','alpha','vsini','vmac','vmic']
     while np.shape(pos)[0]<nwalkers or len(np.shape(pos))==1:
         dictionary_parameters={}
         for value,x in enumerate(limits_Payne):
@@ -1997,7 +1996,7 @@ def spread_masks(orginal_masks,spread=2):
     return masks_temp
 
 colours_dict={'Blue':0,'Red':1,'Green':2,'IR':3}
-labels=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']  
+labels=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']  
 
 open_cluster_sobject_id=np.loadtxt('target_sobject_id.txt',delimiter=',',dtype=str)
 
@@ -2039,33 +2038,6 @@ large_data_GALAH_official_unchanged=large_data_GALAH_official[1].data
 large_data_GALAH_official=Table(large_data_GALAH_official[1].data)
 nwalkers=22
 
-spectras=spectrum_all(photometric_data['sobject_id'][0],cluster=True)
-old_abundances=spectras.old_abundances
- 
-colours=spectras.bands
-reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
-
-# if reduction_status:
-#       print('reduction failed will skip'+str(name)+ 'for now')
-#       continue
-
-
-parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-
-spectras.spread_number=10
-
-full_parameters=['teff','logg','monh','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']
-parameters=['teff','logg','monh','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']
-
-# log_posterior(a[0],parameters,fe_hold=True)
-# name=cross_data['sobject_id'][0]
-# spectras=spectrum_all(name,10,cluster=False)
-# spectras.synthesize()
-# spectras.limit_array()
-# spectras.normalize()
-# spectras.create_masks()
-# spectras.plot(masks=True)
-
 
 
 parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
@@ -2077,14 +2049,10 @@ nwalkers=len(parameters)*2
 prior=False
 ncpu=10
 
-votable = parse(cluster_name+"_reduced_elements_new.xml")
-kevins_run=votable.get_first_table().to_table(use_names_over_ids=True)
-spectras=spectrum_all(kevins_run[28],starting_values='no_prior')
-# log_posterior([6149], ['teff'])
-for star in photometric_data[::-1]:
-    name=150109001001186
+for star in photometric_data:
+    name=star['sobject_id']
     # name=photometric_data[0]['sobject_id']
-    filename = cluster_name+'_reduction/no_prior_reduced_elements_fixed_resolution_new_'+str(name)
+    filename = cluster_name+'_reduction/short_no_prior_'+str(name)
     if not name in all_reduced_data['sobject_id']:
           print('hasnt been reduced ' + str(name))
           continue
@@ -2094,6 +2062,7 @@ for star in photometric_data[::-1]:
     
     spectras=spectrum_all(name,cluster=True)
     spectras.synthesize()
+    spectras.normalize()
     print(filename)
     old_abundances=spectras.old_abundances
     if prior:
@@ -2130,7 +2099,7 @@ for star in photometric_data[::-1]:
             logs=pool.map(partial(log_posterior,parameters=['vrad_'+col]),lin_vrad_pool)
         shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
     spectras.mass_setter(shift_radial)
-    pos_short=starter_walkers_maker(nwalkers,old_abundances,parameters_no_vrad,cluster=True)
+    pos_short=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
     ndim=np.shape(pos_short)[1]
     nwalkers=np.shape(pos_short)[0]
     backend = emcee.backends.HDFBackend(filename)
@@ -2153,7 +2122,7 @@ for star in photometric_data[::-1]:
         old_mean=[]
         old_standard_deviation=[]
         
-        for sample in sampler.sample(pos_short,iterations=40, progress=True):
+        for sample in sampler.sample(pos_short,iterations=10, progress=True):
             if sampler.iteration % step_iteration:
                     continue
         shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
@@ -2169,9 +2138,7 @@ for star in photometric_data[::-1]:
         
         elem_good=[]
         for param in parameters_no_vrad:
-            if param in ['K','Li']:
-                elem_good.append(param)
-            elif param in elements and not param:
+            if param in elements:
                 shift_temp_2=copy.copy(shift_temp)
                 shift_temp_2[param]=x_min[param]
                 solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
@@ -2182,19 +2149,19 @@ for star in photometric_data[::-1]:
                 change=abs(high_value-low_value)
                 if change>50:
                     elem_good.append(param)
-        parameters_no_vrad=parameters_no_elements[:5]
-        parameters_no_vrad=np.hstack((parameters_no_vrad,elem_good))
-        print('will be optimising ' + str(len(parameters_no_vrad))+' parameters')
-        print(parameters_no_vrad)
-        np.save(filename+'_tags.npy',parameters_no_vrad)
-        pos_long=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
+        parameters_main_loop=parameters_no_elements[:5]
+        parameters_main_loop=np.hstack((parameters_main_loop,elem_good))
+        print('will be optimising ' + str(len(parameters_main_loop))+' parameters')
+        print(parameters_main_loop)
+        np.save(filename+'_tags.npy',parameters_main_loop)
+        pos_long=starter_walkers_maker(len(parameters_main_loop)*2,old_abundances,parameters_main_loop,cluster=True)
         nwalkers=np.shape(pos_long)[0]
         ndim=np.shape(pos_long)[1]
         
         backend = emcee.backends.HDFBackend(filename+'_all_elements.h5')
         backend.reset(nwalkers, ndim)
         
-#        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,args=[parameters_no_vrad,prior,normalized_limit_array,parameters],a=5)
+#        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,args=[parameters_main_loop,prior,normalized_limit_array,parameters],a=5)
 #        for sample in sampler.sample(pos_long,iterations=100, progress=True):
 #            if sampler.iteration % step_iteration:
 #                    continue
@@ -2208,7 +2175,7 @@ for star in photometric_data[::-1]:
 #        normalized_limit_array=[np.array(x)*np.array(y)*np.array(z) for (x,y,z) in zip(normalized_limit_array,normalized_mask,end_clips)]       
 
 #        pos_long=sampler.get_chain()[-1]        
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,normalized_limit_array,parameters])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_main_loop,prior,normalized_limit_array,parameters])
         
         
         autocorr=[]
@@ -2217,14 +2184,14 @@ for star in photometric_data[::-1]:
         old_mean=[]
         old_standard_deviation=[]
         # sampler.run_mcmc()
-        for sample in sampler.sample(pos_long,iterations=1200, progress=True):
+        for sample in sampler.sample(pos_long,iterations=20, progress=True):
             if sampler.iteration % step_iteration:
                     continue
             tau=sampler.get_autocorr_time(tol=0)
             if not np.any(np.isnan(tau)):
                 autocorr.append(tau)
                 converged = np.all(tau[:5] * 10 < sampler.iteration)
-                print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_no_vrad[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
+                print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_main_loop[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
                 converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.15)
                 print(sampler.iteration/tau)
                 if converged:
@@ -2237,7 +2204,7 @@ for star in photometric_data[::-1]:
                 unmasked_opt.append(True)
             else:
                 unmasked_opt.append(False)
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=sampler.iteration//2),axis=0),parameters_no_vrad,False,parameters)   
+        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=sampler.iteration//2),axis=0),parameters_main_loop,False,parameters)   
         spectras.mass_setter(shift=shift_temp)
         
         spectras.synthesize(shift_temp)
@@ -2289,7 +2256,7 @@ for star in photometric_data[::-1]:
         
         file_directory = cluster_name+'_reduction/plots/'
         Path(file_directory).mkdir(parents=True, exist_ok=True)
-        file_directory+='no_prior_reduced_elements_fixed_resolution_new_'
+        file_directory+='short_no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
 
 
