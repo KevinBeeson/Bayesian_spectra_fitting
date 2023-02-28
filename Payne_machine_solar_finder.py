@@ -2031,14 +2031,6 @@ x_max={x:y for x,y in zip(labels_with_limits,x_max)}
 # #EMCEE,
 # prior=False
 np.random.seed(589404)
-final_results=[]
-expected_results=[]
-large_data_GALAH_official=fits.open('gaia_galah_cross_values.fits')
-large_data_GALAH_official_unchanged=large_data_GALAH_official[1].data
-large_data_GALAH_official=Table(large_data_GALAH_official[1].data)
-nwalkers=22
-
-
 
 parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
@@ -2046,26 +2038,33 @@ parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','M
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 
 nwalkers=len(parameters)*2
-prior=False
-ncpu=10
 
-for star in photometric_data:
-    name=star['sobject_id']
+
+# for star in photometric_data:
+def main_analysis(sobject_id_name,prior,ncpu=1):
+    name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    filename = cluster_name+'_reduction/short_no_prior_'+str(name)
+    run_name='test_run_'
+    directory='_reduction/'+run_name
+    if prior:
+        filename = cluster_name+directory+'prior_'+str(name)
+    else:
+        filename = cluster_name+directory+'no_prior_'+str(name)
+            
     if not name in all_reduced_data['sobject_id']:
           print('hasnt been reduced ' + str(name))
-          continue
+          return 
     if os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5'):
           print('already done '+ str(name))
-          continue
-    
+          return
+    global spectras
     spectras=spectrum_all(name,cluster=True)
     spectras.synthesize()
     spectras.normalize()
     print(filename)
     old_abundances=spectras.old_abundances
     if prior:
+        global fast_abundances,fast_coefficients
         fast_abundances=np.vstack((np.ma.getdata(old_abundances['teff_raw']),np.ma.getdata(old_abundances['logg_raw']),np.ma.getdata(old_abundances['e_teff_raw']),np.ma.getdata(old_abundances['e_logg_raw'])))
         fast_coefficients=np.ma.getdata(old_abundances['coeff'])
     colours=spectras.bands
@@ -2073,7 +2072,7 @@ for star in photometric_data:
     
     if reduction_status:
           print('reduction failed will skip'+str(name)+ 'for now')
-          continue
+          return
     shift_radial={}
     for col in colours:
         logs=[]
@@ -2090,7 +2089,7 @@ for star in photometric_data:
             sig=float(old_abundances['red_e_rv_com'])*3
         else:
             sig=5
-        num=int(np.ceil(sig*80))
+        num=int(min((mean+sig*3,mean-sig*3)/0.1,30))
         lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
         lin_vrad_pool=[[x] for x in lin_vrad]
         # for x in lin_vrad_pool:
@@ -2105,7 +2104,6 @@ for star in photometric_data:
     backend = emcee.backends.HDFBackend(filename)
     backend.reset(nwalkers, ndim)
     
-    first_try=True
     step_iteration=20
     important_lines, important_molecules = load_dr3_lines()
         
@@ -2122,7 +2120,7 @@ for star in photometric_data:
         old_mean=[]
         old_standard_deviation=[]
         
-        for sample in sampler.sample(pos_short,iterations=10, progress=True):
+        for sample in sampler.sample(pos_short,iterations=40, progress=True):
             if sampler.iteration % step_iteration:
                     continue
         shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
@@ -2184,7 +2182,7 @@ for star in photometric_data:
         old_mean=[]
         old_standard_deviation=[]
         # sampler.run_mcmc()
-        for sample in sampler.sample(pos_long,iterations=20, progress=True):
+        for sample in sampler.sample(pos_long,iterations=1200, progress=True):
             if sampler.iteration % step_iteration:
                     continue
             tau=sampler.get_autocorr_time(tol=0)
@@ -2256,7 +2254,10 @@ for star in photometric_data:
         
         file_directory = cluster_name+'_reduction/plots/'
         Path(file_directory).mkdir(parents=True, exist_ok=True)
-        file_directory+='short_no_prior_'
+        if prior:
+            file_directory+= run_name+'prior_'
+        else:
+            file_directory = run_name+'no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
 
 
