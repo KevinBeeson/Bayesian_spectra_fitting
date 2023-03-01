@@ -2002,8 +2002,6 @@ open_cluster_sobject_id=np.loadtxt('target_sobject_id.txt',delimiter=',',dtype=s
 
 cluster_name='Melotte_22'
 global large_data
-votable = parse(cluster_name+"_photometric_cross.xml")
-photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
           
 
 # large_data=[x for x in large_data if x['sobject_id'] in open_cluster_sobject_id]
@@ -2040,11 +2038,18 @@ elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn',
 nwalkers=len(parameters)*2
 
 
-# for star in photometric_data:
-def main_analysis(sobject_id_name,prior,ncpu=1):
+def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
+    if cluster_name==None:
+        votable = parse("open_cluster_photometric_cross.xml")
+    else:
+        votable = parse(cluster_name+"_photometric_cross.xml")
+    global photometric_data
+    photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+
+    
     name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    run_name='test_run_'
+    run_name='fixed_iron_run_'
     directory='_reduction/'+run_name
     if prior:
         filename = cluster_name+directory+'prior_'+str(name)
@@ -2054,7 +2059,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
     if not name in all_reduced_data['sobject_id']:
           print('hasnt been reduced ' + str(name))
           return 
-    if os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5'):
+    if os.path.exists(filename+'_mask_finding_loop.h5') and os.path.exists(filename+'_main_loop.h5'):
           print('already done '+ str(name))
           return
     global spectras
@@ -2062,6 +2067,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
     spectras.synthesize()
     spectras.normalize()
     print(filename)
+    global old_abundances
     old_abundances=spectras.old_abundances
     if prior:
         global fast_abundances,fast_coefficients
@@ -2074,6 +2080,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
           print('reduction failed will skip'+str(name)+ 'for now')
           return
     shift_radial={}
+    print('calculating radial velocities')
+    radial_velocities=[]
     for col in colours:
         logs=[]
         if not np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]):
@@ -2089,7 +2097,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
             sig=float(old_abundances['red_e_rv_com'])*3
         else:
             sig=5
-        num=int(min((mean+sig*3,mean-sig*3)/0.1,30))
+        num=int(np.ceil(min((sig*6)/0.1,30)))
         lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
         lin_vrad_pool=[[x] for x in lin_vrad]
         # for x in lin_vrad_pool:
@@ -2097,6 +2105,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
         with Pool(processes=ncpu) as pool:
             logs=pool.map(partial(log_posterior,parameters=['vrad_'+col]),lin_vrad_pool)
         shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
+        radial_velocities.append(lin_vrad[logs.index(max(logs))])
+    np.save(filename+'_radial_velocities',radial_velocities)
     spectras.mass_setter(shift_radial)
     pos_short=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
     ndim=np.shape(pos_short)[1]
@@ -2108,19 +2118,16 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
     important_lines, important_molecules = load_dr3_lines()
         
     with Pool(processes=ncpu) as pool:
-        backend = emcee.backends.HDFBackend(filename+'_radial_velocities.h5')
+        backend = emcee.backends.HDFBackend(filename+'_mask_finding_loop.h5')
         backend.reset(nwalkers, ndim)
         
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,True,parameters])
         
         
         autocorr=[]
-        index=0
         oldTau=np.inf
-        old_mean=[]
-        old_standard_deviation=[]
-        
-        for sample in sampler.sample(pos_short,iterations=40, progress=True):
+        print('doing first iteration for masks')
+        for sample in sampler.sample(pos_short,iterations=80, progress=True):
             if sampler.iteration % step_iteration:
                     continue
         shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
@@ -2156,32 +2163,14 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
         nwalkers=np.shape(pos_long)[0]
         ndim=np.shape(pos_long)[1]
         
-        backend = emcee.backends.HDFBackend(filename+'_all_elements.h5')
+        backend = emcee.backends.HDFBackend(filename+'_main_loop.h5')
         backend.reset(nwalkers, ndim)
-        
-#        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,args=[parameters_main_loop,prior,normalized_limit_array,parameters],a=5)
-#        for sample in sampler.sample(pos_long,iterations=100, progress=True):
-#            if sampler.iteration % step_iteration:
-#                    continue
-#        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=0),axis=0),parameters_no_elements,False,parameters)   
-#        synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
-#        normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
-#        normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
-#        normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp,limits=[2,0.1])
-#        end_clips=[np.hstack((np.zeros(10),np.ones(len(y)-20),np.zeros(10))) for y in normalized_limit_array]
-
-#        normalized_limit_array=[np.array(x)*np.array(y)*np.array(z) for (x,y,z) in zip(normalized_limit_array,normalized_mask,end_clips)]       
-
-#        pos_long=sampler.get_chain()[-1]        
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_main_loop,prior,normalized_limit_array,parameters])
         
         
         autocorr=[]
-        index=0
         oldTau=np.ones(ndim)*np.inf
-        old_mean=[]
-        old_standard_deviation=[]
-        # sampler.run_mcmc()
+
         for sample in sampler.sample(pos_long,iterations=1200, progress=True):
             if sampler.iteration % step_iteration:
                     continue
@@ -2192,7 +2181,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
                 print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_main_loop[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
                 converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.15)
                 print(sampler.iteration/tau)
-                if converged:
+                if converged and sampler.iteration>150:
                     break
                 oldTau = tau
         unmasked_opt=[]
@@ -2238,6 +2227,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
                 'rv Green='+ str(np.round(shift_radial['vrad_Green'],decimals=2))+'km/s, ' +\
                 'rv Red='+ str(np.round(shift_radial['vrad_Red'],decimals=2))+'km/s, ' +\
                 'rv IR='+ str(np.round(shift_radial['vrad_IR'],decimals=2))+'km/s'
+        print('creating and saving a figure')
         fig=plot_spectrum(
             wave,
             [
@@ -2257,86 +2247,5 @@ def main_analysis(sobject_id_name,prior,ncpu=1):
         if prior:
             file_directory+= run_name+'prior_'
         else:
-            file_directory = run_name+'no_prior_'
+            file_directory += run_name+'no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
-
-
-
-# important_lines, important_molecules = load_dr3_lines()
-# for star in cross_data:
-#     name=star['sobject_id']
-#     print(name)
-#     # name=cross_data[0]['sobject_id']
-#     filename = 'NGC_2682_reduction/'+str(name)
-#     if not (os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5')):
-#           print('already done '+ name)
-#           continue
-
-#     spectras=spectrum_all(name,cluster=False)
-    
-#     sampler_rad=emcee.backends.HDFBackend(filename+'_radial_velocities.h5')
-    
-#     shift_temp=shift_maker(np.mean(sampler_rad.get_chain(flat=True,discard=20),axis=0),parameters_no_elements,False,parameters)   
-    
-#     synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
-#     normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
-#     normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
-#     normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp)
-#     normalized_limit_array=[np.array(x)*np.array(y) for (x,y) in zip(normalized_limit_array,normalized_mask)]
-#     normalized_limit_array=np.hstack(normalized_limit_array)
-    
-
-#     spectras.mass_setter(shift=shift_temp)
-    
-#     bands=spectras.bands
-#     sampler_elem=emcee.backends.HDFBackend(filename+'_all_elements.h5')
-
-# for 
-# all_wave=
-
-# old_abundances=[y for y in large_data if y['sobject_id']==str(name)]
-# # if len(old_abundances)==0:
-# #      print('spectra doesnt exists skipping '+name)
-# #      continue
-
-# old_abundances=vstack(old_abundances)
-
-# spectras=spectrum_all(name,10)
-
-# print(filename2)
-
-
-
-# backend.reset(nwalkers, ndim)
-
-# with Pool(processes=nwalkers) as pool:
-#     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters,prior,hold])
-    
-    
-#     autocorr=[]
-#     index=0
-#     oldTau=np.inf
-#     old_mean=[]
-#     old_standard_deviation=[]
-    
-#     for sample in sampler.sample(pos,iterations=1800, progress=True):
-#         if sampler.iteration % step_iteration:
-#                 continue
-#         tau=sampler.get_autocorr_time(tol=0)
-#         # print("Autocorelation Time is :",tau)
-#         # if sampler.iteration>np.nanmax(tau)*7 and sampler.iteration>min_steps:
-#         #     temp_data=sampler.get_chain(flat=True)[-int(sampler.iteration*0.6*nwalkers):]
-#         #     print('gaussian and moving difference '+ str(how_good_gaussian_fit(temp_data)))
-#         #     if how_good_gaussian_fit(temp_data)<0.005:
-#         #         print('converged_stoped')
-#         #         break
-                                
-#         if not np.any(np.isnan(tau)):
-#             autocorr.append(tau)
-#             converged = np.all(tau * 11 < sampler.iteration)
-#             print('worst converging dimention is', np.min(sampler.iteration/tau), labels[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
-#             converged &= np.all(np.abs(oldTau - tau) / tau < 0.10)
-#             print(np.abs(oldTau - tau) / tau )
-#             if converged:
-#                 break
-#             oldTau = tau
