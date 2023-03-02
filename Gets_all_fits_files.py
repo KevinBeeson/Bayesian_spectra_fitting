@@ -763,40 +763,20 @@ class individual_spectrum:
                 self.hermes=hermes
                 if starting_values=='dr4':
                     if cluster:
-                        if not (np.isnan(old_abundances['teff_spectroscopic']) or np.ma.is_masked(old_abundances['teff_spectroscopic'])):
-                            self.teff=float(old_abundances['teff_spectroscopic'])
-                        else:
-                            self.teff=float(old_abundances['teff_photometric'])
-                        if not( np.isnan(old_abundances['vmic']) or np.ma.is_masked(old_abundances['vmic'])):
-
-                            self.vmic=float(old_abundances['vmic'])
-                        elif not (np.isnan(old_abundances['red_vmic']) or np.ma.is_masked(old_abundances['red_vmic'])):
-                            self.vmic=float(old_abundances['red_vmic'])
-                        else:
-                            self.vmic=1
-                        if not( np.isnan(old_abundances['vsini']) or np.ma.is_masked(old_abundances['vsini'])):
-
-                            self.vsini=float(old_abundances['vsini'])
-                        elif not (np.isnan(old_abundances['red_vbroad']) or np.ma.is_masked(old_abundances['red_vbroad'])):
-                            self.vsini=float(old_abundances['red_vbroad'])
-                        else:
-                            self.vsini=10
-                            
-                        if not( np.isnan(old_abundances['fe_h']) or np.ma.is_masked(old_abundances['fe_h'])):
-
-                            self.fe_h=float(old_abundances['fe_h'])
-                        elif not (np.isnan(old_abundances['red_fe_h']) or  np.ma.is_masked(old_abundances['red_fe_h'])):
-                            self.fe_h=float(old_abundances['red_fe_h'])
-                        else:
-                            self.fe_h=0.0
-                            
-                        if not (np.isnan(old_abundances['red_rv_ccd'][count-1]) or np.ma.is_masked(old_abundances['red_rv_ccd'][count-1])) :
+                        self.teff=float(old_abundances['teff_spectroscopic'])
+                        self.vmic=float(old_abundances['vmic'])
+                        self.vsini=float(old_abundances['vsini'])
+                        self.Fe=float(old_abundances['fe_h'])
+                        self.fe_h=float(old_abundances['fe_h'])
+                        if not np.isnan(old_abundances['red_rv_ccd'][count-1]):
                             self.vrad=old_abundances['red_rv_ccd'][count-1]
-                        elif not (np.isnan(float(old_abundances['red_rv_com']))or np.ma.is_masked(old_abundances['red_rv_com'])):
+                        elif not np.isnan(float(old_abundances['red_rv_com'])):
                             self.vrad=float(old_abundances['red_rv_com'])
                         else:
                             self.vrad=0.0
+                        self.vmac=6.0
                         self.logg=float(old_abundances['logg_photometric'])
+                        self.monh=float(old_abundances['fe_h'])
                         elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
                         for individual_element in elements:
                             if not isinstance(old_abundances[individual_element.lower()+'_fe'],np.float32):
@@ -818,11 +798,7 @@ class individual_spectrum:
                         else:
                             self.vrad=0.0
                         self.vmac=6.0
-                        if not np.isnan(old_abundances['logg_spectrometric']):
-                            self.logg=float(old_abundances['logg_spectrometric'])
-                        else:
-                            self.logg=float(old_abundances['logg_photometric'])
-
+                        self.logg=float(old_abundances['logg_photometric'])
                         self.monh=float(old_abundances['fe_h'])
                         elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
                         for individual_element in elements:
@@ -867,16 +843,7 @@ class individual_spectrum:
                 important_lines_temp=np.vstack([[elem_temp,wave_temp] for elem_temp,wave_temp in zip(line,wavelength) if wave_temp>length_synthetic[0] and wave_temp<length_synthetic[-1]])
                 self.important_lines=important_lines_temp
                 rsetattr(self,'.important_lines',important_lines_temp)
-                self.normal_value=None
-    
-                self.l_new=None
-                # Load spectrum masks
-                masks = Table.read('spectrum_mask_kevin.fits')
-                masks_temp=vstack([x for x in masks if x['mask_begin']>self.wran[0]-200 and x['mask_end']<self.wran[1]+200])
-                self.masks=masks_temp
-                vital_lines = Table.read('vital_lines.fits')
-                vital_lines_temp=vstack([x for x in vital_lines if x['line_begin']>self.wran[0]-200 and x['line_end']<self.wran[1]+200])
-                self.vital_lines=vital_lines_temp
+
 
             except FileNotFoundError:
                 print('No hermes found')
@@ -885,7 +852,16 @@ class individual_spectrum:
             
 
 
+            self.normal_value=None
 
+            self.l_new=None
+            # Load spectrum masks
+            masks = Table.read('spectrum_mask_kevin.fits')
+            masks_temp=vstack([x for x in masks if x['mask_begin']>self.wran[0]-200 and x['mask_end']<self.wran[1]+200])
+            self.masks=masks_temp
+            vital_lines = Table.read('vital_lines.fits')
+            vital_lines_temp=vstack([x for x in vital_lines if x['line_begin']>self.wran[0]-200 and x['line_end']<self.wran[1]+200])
+            self.vital_lines=vital_lines_temp
 def sclip(p,fit,n,ye=[],sl=99999,su=99999,min=0,max=0,min_data=1,grow=0,global_mask=None,verbose=True):
     """
     p: array of coordinate vectors. Last line in the array must be values that are fitted. The rest are coordinates.
@@ -1075,12 +1051,6 @@ class spectrum_all:
 
         for count,x in enumerate(bands,1):
             setattr(self,x,individual_spectrum(name,interpolation,x,count,starting_data,cluster,starting_values=starting_values))
-        bands_new=[]
-        for x in bands:
-            if rgetattr(self, x+'.hermes') is not None:
-                bands_new.append(x)
-        bands=bands_new
-        self.bands=bands_new
         self.correct_resolution_map()
         self.equilize_spectras()
     def equilize_spectras(self,colours=None):
@@ -2064,16 +2034,23 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-cluster_name='Ruprecht_147'
-votable = parse(cluster_name+"_photometric_cross.xml")
-photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
 
-spectras=spectrum_all(170828002201076,cluster=True)
+nwalkers=len(parameters)*2
+votable = parse("open_cluster_photometric_cross.xml")
+photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+open_cluster_sobject_id=np.loadtxt('Ruprecht_147_targets.txt',dtype=str)
+nights_missing=[]
+for name in open_cluster_sobject_id:
+    try:
+        spectras=spectrum_all(name,cluster=True)
+    except:
+        print('cant do ',name)
+        nights_missing.append(name)
+np.savetxt('missing_spectra.txt',nights_missing,delimiter='\n',fmt='%s')
 
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
-        cluster_name='General'
     else:
         votable = parse(cluster_name+"_photometric_cross.xml")
     global photometric_data
@@ -2084,12 +2061,11 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     # name=photometric_data[0]['sobject_id']
     run_name='fixed_iron_run_'
     directory='_reduction/'+run_name
-    Path(cluster_name+'_reduction/').mkdir(parents=True,exist_ok=True)
     if prior:
         filename = cluster_name+directory+'prior_'+str(name)
     else:
         filename = cluster_name+directory+'no_prior_'+str(name)
-    
+            
     if not name in all_reduced_data['sobject_id']:
           print('hasnt been reduced ' + str(name))
           return 
@@ -2118,16 +2094,16 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     radial_velocities=[]
     for col in colours:
         logs=[]
-        if not (np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_rv_ccd'][colours_dict[col]])):
+        if not np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]):
             mean=float(old_abundances['red_rv_ccd'][colours_dict[col]])
-        elif not( np.isnan(old_abundances['red_rv_com']) or np.ma.is_masked(old_abundances['red_rv_com'])):
+        elif not np.isnan(old_abundances['red_rv_com']):
             mean=float(old_abundances['red_rv_com'])
         else:
-            mean=np.nanmean(photometric_data['red_rv_com'])
-        if not (np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_e_rv_ccd'][colours_dict[col]])):
+            break
+        if not np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]):
             sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
     
-        elif not (np.isnan(old_abundances['red_e_rv_com']) or np.ma.is_masked(old_abundances['red_e_rv_com'])) :
+        elif not np.isnan(old_abundances['red_e_rv_com']):
             sig=float(old_abundances['red_e_rv_com'])*3
         else:
             sig=5
