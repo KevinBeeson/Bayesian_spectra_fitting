@@ -166,7 +166,7 @@ def log_prior(shift):
         else:
             return error        
 #@profile
-def log_posterior(solar_values,parameters,prior=False,first_try=True,full_parameters=None):
+def log_posterior(solar_values,parameters,prior=False,full_parameters=None,insert_mask=None,create_limit_mask=True,create_masks=True,):
     
         """
         Gives how good the fit of the inserted solar parameters are compared to the observed spectra 
@@ -200,30 +200,22 @@ def log_posterior(solar_values,parameters,prior=False,first_try=True,full_parame
         # shift['teff']=(shift['teff']+6000)*10
         # try:
         synthetic_spectras=spectras.synthesize(shift,give_back=True)
-            # print('shift' , shift)
-            # print("Spectra",synthetic_spectras)
-        # except:
-        #     print('couldnt finish synthesizing')
-        #     return -np.inf
-        
-        #Sanity checks Dont think needs to be done anymore as we're using payne
-        # if not np.all([np.all(x) for x in synthetic_spectras]):
-        #     print("Didnt synthesize properly")
-        #     return -np.inf
-        # if np.max([np.max(abs(x)) for x in synthetic_spectras])>100 or np.max([np.max(abs(x)) for x in synthetic_spectras])==np.nan:
-        #     print("Didnt synthesize properly one of the spectra blew up")
-        #     return -np.inf
-        # if np.any(np.array_equal(synthetic_spectras,np.nan)):
-        #     print("Didnt synthesize properly Nan values yay!")
-        #     return -np.inf
     
     
         normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
-        if first_try==True:
-            normalized_limit_array=spectras.create_masks(clean=True,shift=shift)
+        if insert_mask is None:
+            if create_limit_mask==True:
+                normalized_limit_array=spectras.limit_array(give_back=True,observed_spectra=normalized_spectra)
+            else:
+                normalized_limit_array=[np.ones(len(x)) for x in normalized_spectra]
+            if create_masks:
+                normalized_masks=spectras.create_masks(clean=True,shift=shift)
+            else:
+                normalized_masks=[np.ones(len(x)) for x in normalized_spectra]
+            combined_mask=[x*y for x,y in zip(normalized_masks,normalized_limit_array)]
         else:
-            normalized_limit_array=first_try
-        probability=spectras.log_fit(synthetic_spectra=synthetic_spectras,solar_shift=shift,normal=normalized_spectra,uncertainty=normalized_uncs,limit_array=normalized_limit_array,combine_masks=False)
+            combined_mask=insert_mask
+        probability=spectras.log_fit(synthetic_spectra=synthetic_spectras,solar_shift=shift,normal=normalized_spectra,uncertainty=normalized_uncs,limit_array=combined_mask,combine_masks=False)
         # print(prior_2d(shift))
         if prior:
             probability+=prior_2d(shift)
@@ -702,7 +694,7 @@ class individual_spectrum:
             else:
                 starting_fraction=2085/4096
                 length_fraction=2/(4096*(1-starting_fraction))
-            tmp = np.load("NN_normalized_spectra_all_elements_2_"+x+".npz")
+            tmp = np.load("NN_normalized_spectra_all_elements_3_"+x+".npz")
             w_array_0 = tmp["w_array_0"]
             w_array_1 = tmp["w_array_1"]
             w_array_2 = tmp["w_array_2"]
@@ -1106,22 +1098,46 @@ class spectrum_all:
         for x in colours:
             dip_array=[np.exp((y-1.0)**2/2*sigfig**2) for y in rgetattr(self,x+'.spec')]
             rsetattr(self, x+'.dip_array',dip_array)
-    def limit_array(self,colours=None,limit=1.05,observed_spectra=None):
+    def limit_array(self,colours=None,limit=1.05,observed_spectra=None,give_back=False):
         if colours==None:
             colours=self.bands
-        if not np.array_equal(observed_spectra,None):
+        if give_back:
             returning_limit=np.array(np.ones(len(colours)),dtype=object)
-            for value,spec in enumerate(observed_spectra):
-                limit_array_temp=[]
-                for y in spec:
-                    if y>limit:
-                        limit_array_temp.append(0)
-                    else:
-                        limit_array_temp.append(1)
-                limit_array_spread=spread_masks(limit_array_temp,5)
-                returning_limit[value]=limit_array_spread
+            if not np.array_equal(observed_spectra,None):
+                for value,spec in enumerate(observed_spectra):
+                    limit_array_temp=[]
+                    for y in spec:
+                        if y>limit:
+                            limit_array_temp.append(0)
+                        else:
+                            limit_array_temp.append(1)
+                    limit_array_spread=spread_masks(limit_array_temp,5)
+                    returning_limit[value]=limit_array_spread
+                return returning_limit
+            for value,x in enumerate(colours):
+                
+                if rgetattr(self, x+'.hermes')!=None:
+                    limit_array=[]
+                    for y in rgetattr(self,x+'.spec'):
+                        if y>limit:
+                            limit_array.append(0)
+                        else:
+                            limit_array.append(1)
+                    limit_array_spread=spread_masks(limit_array,5)
+                    returning_limit[value]=limit_array_spread
             return returning_limit
         for x in colours:
+            if not np.array_equal(observed_spectra,None):
+                for value,spec in enumerate(observed_spectra):
+                    limit_array_temp=[]
+                    for y in spec:
+                        if y>limit:
+                            limit_array_temp.append(0)
+                        else:
+                            limit_array_temp.append(1)
+                    limit_array_spread=spread_masks(limit_array_temp,5)
+                    rsetattr(self,x+'.limit',limit_array_spread)
+
             if rgetattr(self, x+'.hermes')!=None:
                 limit_array=[]
                 for y in rgetattr(self,x+'.spec'):
@@ -2064,11 +2080,11 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-cluster_name='Ruprecht_147'
+cluster_name='Melotte_22'
 votable = parse(cluster_name+"_photometric_cross.xml")
 photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
-
-spectras=spectrum_all(170828002201076,cluster=True)
+spectras=spectrum_all(150109001001045,cluster=True)
+log_posterior([5000,4.2], ['teff','logg'])
 
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if cluster_name==None:
@@ -2154,21 +2170,20 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     with Pool(processes=ncpu) as pool:
         backend = emcee.backends.HDFBackend(filename+'_mask_finding_loop.h5')
         backend.reset(nwalkers, ndim)
-        
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,True,parameters])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,parameters])
         
         
         autocorr=[]
         oldTau=np.inf
         print('doing first iteration for masks')
-        for sample in sampler.sample(pos_short,iterations=80, progress=True):
+        for sample in sampler.sample(pos_short,iterations=10, progress=True):
             if sampler.iteration % step_iteration:
                     continue
         shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
         
         synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
         normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
-        normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra)
+        normalized_limit_array=spectras.limit_array(observed_spectra=normalized_spectra,give_back=True)
         normalized_mask=spectras.create_masks(synthetic_spectra_insert=synthetic_spectras,uncs_insert=normalized_uncs,normalized_observed_spectra_insert=normalized_spectra,shift=shift_temp)
         
         normalized_limit_array=[np.array(x)*np.array(y) for (x,y) in zip(normalized_limit_array,normalized_mask)]
@@ -2181,10 +2196,10 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
                 shift_temp_2=copy.copy(shift_temp)
                 shift_temp_2[param]=x_min[param]
                 solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                low_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,first_try=normalized_limit_array,full_parameters=parameters)
+                low_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
                 shift_temp_2[param]=x_max[param]
                 solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,first_try=normalized_limit_array,full_parameters=parameters)
+                high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
                 change=abs(high_value-low_value)
                 if change>50:
                     elem_good.append(param)
@@ -2199,7 +2214,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         
         backend = emcee.backends.HDFBackend(filename+'_main_loop.h5')
         backend.reset(nwalkers, ndim)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_main_loop,prior,normalized_limit_array,parameters])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
         
         
         autocorr=[]
@@ -2283,3 +2298,4 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         else:
             file_directory += run_name+'no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
+main_analysis(150109001001045, False,cluster_name='Melotte_22')
