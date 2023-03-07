@@ -60,17 +60,23 @@ convergence=[]
 # new_sigma_temp=np.hstack((elem_sigma[:5],vrad_sigma,elem_sigma[5:]))
 # new_sigmas.append(new_sigma_temp)
 change_ratio=[]
+iteration=[]
+radial_velocties=[]
 for star in cross_data:
     name=str(star['sobject_id'])
     print(name)
-    filename = cluster_name+'_reduction/no_prior_reduced_elements_'+str(name)
-    if not (os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5')):
-          print('already done '+ name)
+    filename = cluster_name+'_reduction/fixed_iron_run_3_no_prior_'+str(name)
+    if not (os.path.exists(filename+'_mask_finding_loop.h5') and os.path.exists(filename+'_main_loop.h5') and os.path.exists(filename+'_radial_velocities')):
+          print('not synthesized '+ name)
           continue
 
     # star=cross_data[0]
+    radial_velocities_temp=np.load(filename+'_radial_velocities')
+    radial_velocties.append(radial_velocities_temp)
+    
     sobject_id_existing.append(star['sobject_id'])
-    sampler_elem=emcee.backends.HDFBackend(filename+'_all_elements.h5')
+    sampler_elem=emcee.backends.HDFBackend(filename+'_main_loop.h5')
+    iteration.append(sampler_elem.iteration)
     tags=np.load(filename+'_tags.npy')
     autocorellation=np.round(sampler_elem.get_autocorr_time(tol=0,discard=100)).astype(int)
     data=sampler_elem.get_chain(flat=True,discard=100)
@@ -82,20 +88,20 @@ for star in cross_data:
     change_ratio_temp=[]
     for param in parameters:
         if param in tags:
-            
             corelation=autocorellation[value]
-            mean_older=np.mean(data[-corelation:,value])
-            mean_younger=np.mean(data[-corelation*6*non_zeros_elements:-corelation*4*non_zeros_elements,value])
+            correlation_max=len(data)//corelation
+            mean_older=np.mean(data[-int(len(data[:,value])*0.2):,value])
+            mean_younger=np.mean(data[-int(len(data[:,value])*0.5):-int(len(data)*0.3),value])
             if np.isnan(mean_younger):
                 print('oh no')
             change=abs(mean_older-mean_younger)
-            standard_deviation=np.sqrt(np.var(data[-corelation*6*non_zeros_elements:,value]))
+            standard_deviation=np.sqrt(np.var(data[corelation*4*non_zeros_elements:,value]))
             change_ratio_temp.append(standard_deviation/change)
             if standard_deviation/change>3:
                 convergence_temp.append(0)
             else:
                 convergence_temp.append(1)
-            new_variables_temp.append(np.mean(data[-corelation*6*non_zeros_elements:,value]))
+            new_variables_temp.append(np.mean(data[corelation*4*non_zeros_elements:,value]))
             new_sigmas_temp.append(change)
             value+=1
         else:
@@ -123,26 +129,31 @@ tab['sobject_id']=sobject_id_existing
 for conv,sig,nam in zip(convergence.T,new_sigmas.T,parameters_no_prior):
     tab['e_'+nam]=sig
     tab['flag_'+nam]=conv
-    
-    
+tab['radial_velocities_no_prior']=radial_velocties
+tab['iteration_no_prior']=iteration
 sobject_id_existing=[]
 new_variables=[]
 new_sigmas=[]
 change_ratio=[]
 convergence=[]
+iteration=[]
+radial_velocties=[]
 for star in cross_data:
     name=str(star['sobject_id'])
     print(name)
-    filename = cluster_name+'_reduction/prior_reduced_elements_'+str(name)
-    if not (os.path.exists(filename+'_radial_velocities.h5') and os.path.exists(filename+'_all_elements.h5')):
+    filename = cluster_name+'_reduction/fixed_iron_run_prior_'+str(name)
+    if not (os.path.exists(filename+'_mask_finding_loop.h5') and os.path.exists(filename+'_main_loop.h5') and os.path.exists(filename+'_radial_velocities')):
           print('already done '+ name)
           continue
 
     # star=cross_data[0]
+    radial_velocities_temp=np.load(filename+'_radial_velocities')
+    radial_velocties.append(radial_velocities_temp)
     sobject_id_existing.append(star['sobject_id'])
-    sampler_elem=emcee.backends.HDFBackend(filename+'_all_elements.h5')
+    sampler_elem=emcee.backends.HDFBackend(filename+'_main_loop.h5')
     tags=np.load(filename+'_tags.npy')
     autocorellation=np.round(sampler_elem.get_autocorr_time(tol=0,discard=100)).astype(int)
+    iteration.append(sampler_elem.iteration)
     data=sampler_elem.get_chain(flat=True,discard=100)
     value=0
     convergence_temp=[]
@@ -152,20 +163,20 @@ for star in cross_data:
     change_ratio_temp=[]
     for param in parameters:
         if param in tags:
-            
             corelation=autocorellation[value]
-            mean_older=np.mean(data[-corelation:,value])
-            mean_younger=np.mean(data[-corelation*6*non_zeros_elements:-corelation*4*non_zeros_elements,value])
+            correlation_max=len(data)//corelation
+            mean_older=np.mean(data[-int(len(data[:,value])*0.2):,value])
+            mean_younger=np.mean(data[-int(len(data[:,value])*0.5):-int(len(data)*0.3),value])
             if np.isnan(mean_younger):
                 print('oh no')
             change=abs(mean_older-mean_younger)
-            standard_deviation=np.sqrt(np.var(data[-corelation*6*non_zeros_elements:,value]))
+            standard_deviation=np.sqrt(np.var(data[corelation*4*non_zeros_elements:,value]))
             change_ratio_temp.append(standard_deviation/change)
             if standard_deviation/change>3:
                 convergence_temp.append(0)
             else:
                 convergence_temp.append(1)
-            new_variables_temp.append(np.mean(data[-corelation*6*non_zeros_elements:,value]))
+            new_variables_temp.append(np.mean(data[corelation*4*non_zeros_elements:,value]))
             new_sigmas_temp.append(change)
             value+=1
         else:
@@ -196,10 +207,11 @@ for conv,var,sig,nam in zip(convergence.T,new_variables.T,new_sigmas.T,parameter
     tab['e_'+nam]=sig
     tab['flag_'+nam]=conv
     tab[nam]=var
-
+tab['radial_velocities_prior']=radial_velocties
+tab['iteration_prior']=iteration
 tab['sobject_id']=tab['sobject_id'].reshape(len(tab))
 tab=join(tab,cross_data,keys='sobject_id')
 votable=from_table(tab)
-writeto(votable,cluster_name+"_new_elements.xml")
+writeto(votable,cluster_name+"_3_fixed_iron.xml")
 
     
