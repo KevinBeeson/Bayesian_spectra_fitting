@@ -200,9 +200,11 @@ def log_posterior(solar_values,parameters,prior=False,full_parameters=None,inser
         # shift['teff']=(shift['teff']+6000)*10
         # try:
         synthetic_spectras=spectras.synthesize(shift,give_back=True)
+        normalized_spectra=[rgetattr(spectras,x+'.spec') for x in spectras.bands]
+        normalized_uncs=[rgetattr(spectras,x+'.uncs') for x in spectras.bands]
     
     
-        normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
+        # normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
         if insert_mask is None:
             if create_limit_mask==True:
                 normalized_limit_array=spectras.limit_array(give_back=True,observed_spectra=normalized_spectra)
@@ -2080,12 +2082,12 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-cluster_name='Melotte_22'
-votable = parse(cluster_name+"_photometric_cross.xml")
-photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
-spectras=spectrum_all(150109001001045,cluster=True)
-log_posterior([5000,4.2], ['teff','logg'])
-
+# votable = parse("Melotte_22_photometric_cross.xml")
+# photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+# spectras=spectrum_all(160106001601078)
+# spectras.synthesize()
+# spectras.normalize()
+# log_posterior([5000], ['teff'])
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
@@ -2098,7 +2100,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     
     name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    run_name='fixed_iron_run_'
+    run_name='no_normalization_'
     directory='_reduction/'+run_name
     Path(cluster_name+'_reduction/').mkdir(parents=True,exist_ok=True)
     if prior:
@@ -2298,4 +2300,3 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         else:
             file_directory += run_name+'no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
-main_analysis(150109001001045, False,cluster_name='Melotte_22')
