@@ -6,6 +6,10 @@ Created on Sat May 29 13:39:38 2021
 
 @author: kevin
 """
+import os 
+os.environ["MKL_NUM_THREADS"] = "1" 
+os.environ["NUMEXPR_NUM_THREADS"] = "1" 
+os.environ["OMP_NUM_THREADS"] = "1" 
 from scipy.stats import kde
 from scipy import integrate
 
@@ -14,7 +18,6 @@ import time
 from functools import  partial
 from astropy.io.votable import parse
 import emcee
-# from The_Payne import spectral_model
 import scipy
 from scipy import signal
 from os.path import exists
@@ -29,9 +32,6 @@ import numpy as np
 from multiprocessing import Pool
 from astropy.io import fits
 import copy
-# import Galah_tool_py3 as gtools
-import os
-# import random
 import functools
 from multiprocessing.dummy import Pool as ThreadPool 
 from scipy.stats import chi2
