@@ -2082,12 +2082,6 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-# votable = parse("Melotte_22_photometric_cross.xml")
-# photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
-# spectras=spectrum_all(160106001601078)
-# spectras.synthesize()
-# spectras.normalize()
-# log_posterior([5000], ['teff'])
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
@@ -2160,6 +2154,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         radial_velocities.append(lin_vrad[logs.index(max(logs))])
     np.save(filename+'_radial_velocities',radial_velocities)
     spectras.mass_setter(shift_radial)
+    spectras.synthesize()
+    spectras.normalize()
     pos_short=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
     ndim=np.shape(pos_short)[1]
     nwalkers=np.shape(pos_short)[0]
