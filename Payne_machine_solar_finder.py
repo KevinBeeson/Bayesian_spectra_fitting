@@ -10,6 +10,8 @@ import os
 os.environ["MKL_NUM_THREADS"] = "1" 
 os.environ["NUMEXPR_NUM_THREADS"] = "1" 
 os.environ["OMP_NUM_THREADS"] = "1" 
+os.environ['OPENBLAS_NUM_THREADS']="1" 
+os.environ['VECLIB_MAXIMUM_THREADS']="1"
 from scipy.stats import kde
 from scipy import integrate
 
@@ -43,8 +45,6 @@ warnings.filterwarnings("ignore")
 
 logger=logging.getLogger('pysme')
 logger.setLevel(-100)
-
-os.environ["OMP_NUM_THREADS"] = "1"
 
 # def synthesize_multi(move,values,changed_values):
 #     shift={values:move}
@@ -165,7 +165,7 @@ def log_prior(shift):
             return -np.inf
         else:
             return error        
-#@profile
+#@
 def log_posterior(solar_values,parameters,prior=False,full_parameters=None,insert_mask=None,create_limit_mask=True,create_masks=True,):
     
         """
@@ -2168,13 +2168,13 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     with Pool(processes=ncpu) as pool:
         backend = emcee.backends.HDFBackend(filename+'_mask_finding_loop.h5')
         backend.reset(nwalkers, ndim)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_no_vrad,prior,parameters])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_no_vrad,prior,parameters])
         
         
         autocorr=[]
         oldTau=np.inf
         print('doing first iteration for masks')
-        for sample in sampler.sample(pos_short,iterations=10, progress=True):
+        for sample in sampler.sample(pos_short,iterations=80, progress=True):
             if sampler.iteration % step_iteration:
                     continue
         shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
@@ -2191,6 +2191,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         elem_good=[]
         for param in parameters_no_vrad:
             if param in elements:
+                solar_value_temp=spectras.solar_value_maker(shift_temp,keys=parameters_no_vrad)
+                median_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
                 shift_temp_2=copy.copy(shift_temp)
                 shift_temp_2[param]=x_min[param]
                 solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
@@ -2198,7 +2200,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
                 shift_temp_2[param]=x_max[param]
                 solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
                 high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
-                change=abs(high_value-low_value)
+                change=max([median_value,low_value,high_value])-min([median_value,low_value,high_value])
                 if change>50:
                     elem_good.append(param)
         parameters_main_loop=parameters_no_elements[:5]
@@ -2212,12 +2214,12 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         
         backend = emcee.backends.HDFBackend(filename+'_main_loop.h5')
         backend.reset(nwalkers, ndim)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,backend=backend,pool=pool,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
         
         
         autocorr=[]
         oldTau=np.ones(ndim)*np.inf
-
+    
         for sample in sampler.sample(pos_long,iterations=1200, progress=True):
             if sampler.iteration % step_iteration:
                     continue
@@ -2296,3 +2298,16 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         else:
             file_directory += run_name+'no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
+# main_analysis(160106001601078,prior=True,ncpu=3)
+# top# votable = parse("Ruprecht_147_photometric_cross.xml")
+# # global photometric_data
+# photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+
+# spectras=spectrum_all(170830002301172)
+# spectras.synthesize()
+# spectras.normalize()
+# old_abundances=spectras.old_abundances
+# pos_short=starter_walkers_maker(50,old_abundances,parameters_no_vrad,cluster=True)
+
+# for pos in pos_short:
+#     log_posterior(pos,parameters_no_vrad)
