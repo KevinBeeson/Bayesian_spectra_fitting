@@ -370,7 +370,7 @@ circle_size=0.1
 colours=['red','blue']
 endings=['_prior','_Galah_iDR4']
 converged=True
-for name in ['Ruprecht_147',"Melotte_22","NGC_2516","Blanco_1","NGC_2682"]:
+for name in cluster_details_all[:,0]:
     shape=(8,5)
 
     fig = plt.figure(figsize=shape)
@@ -412,91 +412,93 @@ for name in ['Ruprecht_147',"Melotte_22","NGC_2516","Blanco_1","NGC_2682"]:
         if converged:
             mask=data['flag_sp']==0
             data=data[mask]
-        size_font=10
-        iso_type='gaia'
+        if len(data)!=0:
+            size_font=10
+            iso_type='gaia'
 
 
 
 
-        
-        if ending=="_Galah_iDR4":
-            ax1.scatter(data['teff_spectroscopic'],data['logg_spectroscopic'],s=0.3,c=colour)
-        else:
-            teff,logg=converged_data('teff'+ending,'logg'+ending)
-            ax1.scatter(teff,logg,s=0.3,c=colour)
-        ax1.set_xlabel(r'$T_{\rm{eff}}$')
-        ax1.xaxis.set_label_position('top') 
-        ax1.tick_params('x', top=True, labeltop=True,bottom=False,labelbottom=False)
-        ax1.set_xlim(min(min(data['teff_prior']),min(data['teff_no_prior'])),max(max(data['teff_prior']),max(data['teff_no_prior'])))
-        ax1.set_ylim(min(min(data['logg_prior']),min(data['logg_no_prior'])),max(max(data['logg_prior']),max(data['logg_no_prior'])))
-
-        # x=np.array(data['teff'],dtype=float)
-        # y=np.array(data['logg'],dtype=float)
-        # nbins=300
-        # k = kde.gaussian_kde([x,y])
-        # xi, yi = np.mgrid[x.min():x.max():nbins*1j, y.min():y.max():nbins*1j]
-        # zi = k(np.vstack([xi.flatten(), yi.flatten()]))
-        # ax1.contour(xi, yi, zi.reshape(xi.shape),levels=5)
-        ax1.plot(10**iso[:,2],iso[:,-2],label=r'Best fit',c=colour,linewidth=0.8)
-
-        ax1.text(-0.125 ,0.5,r'log(\small $g$)' ,horizontalalignment='center',verticalalignment='center', transform=ax1.transAxes,rotation=90)
-
-        ax1.invert_yaxis()
-        ax1.invert_xaxis()
-        for value,(axis,col_dat) in enumerate(zip(ax[:3],parameters_index[2:5]),2):
+            
             if ending=="_Galah_iDR4":
-                axis.scatter(data['teff_spectroscopic'],data[col_dat.lower()],s=0.3,c=colour)
-                bins=np.linspace(min(data['teff_spectroscopic'])+200,max(data['teff_spectroscopic'])-200,10)
+                ax1.scatter(data['teff_spectroscopic'],data['logg_spectroscopic'],s=0.3,c=colour)
             else:
-                axis.scatter(data['teff'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour)
-                bins=np.linspace(min(data['teff'+ending])-200,    max(data['teff'+ending])+200,10)
-            average=np.array([])
-            std=np.array([])
-            for value in range(len(bins)-1):
+                teff,logg=converged_data('teff'+ending,'logg'+ending)
+                ax1.scatter(teff,logg,s=0.3,c=colour)
+            ax1.set_xlabel(r'$T_{\rm{eff}}$')
+            ax1.xaxis.set_label_position('top') 
+            ax1.tick_params('x', top=True, labeltop=True,bottom=False,labelbottom=False)
+            ax1.set_xlim(min(min(data['teff_prior']),min(data['teff_no_prior'])),max(max(data['teff_prior']),max(data['teff_no_prior'])))
+            ax1.set_ylim(min(min(data['logg_prior']),min(data['logg_no_prior'])),max(max(data['logg_prior']),max(data['logg_no_prior'])))
+
+            # x=np.array(data['teff'],dtype=float)
+            # y=np.array(data['logg'],dtype=float)
+            # nbins=300
+            # k = kde.gaussian_kde([x,y])
+            # xi, yi = np.mgrid[x.min():x.max():nbins*1j, y.min():y.max():nbins*1j]
+            # zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+            # ax1.contour(xi, yi, zi.reshape(xi.shape),levels=5)
+            ax1.plot(10**iso[:,2],iso[:,-2],label=r'Best fit',c=colour,linewidth=0.8)
+
+            ax1.text(-0.125 ,0.5,r'log(\small $g$)' ,horizontalalignment='center',verticalalignment='center', transform=ax1.transAxes,rotation=90)
+
+            ax1.invert_yaxis()
+            ax1.invert_xaxis()
+            for value,(axis,col_dat) in enumerate(zip(ax[:3],parameters_index[2:5]),2):
                 if ending=="_Galah_iDR4":
-                    average=np.append(average,np.mean(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
-                    std=np.append(std,np.std(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                    axis.scatter(data['teff_spectroscopic'],data[col_dat.lower()],s=0.3,c=colour)
+                    bins=np.linspace(min(data['teff_spectroscopic'])+200,max(data['teff_spectroscopic'])-200,10)
                 else:
-                    average=np.append(average,np.mean(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
-                    std=np.append(std,np.std(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
-            axis.plot((bins[:-1]+bins[1:])/2,average,linewidth=0.5,c=colour)
-            axis.fill_between((bins[:-1]+bins[1:])/2,average-std,average+std,alpha=0.5,color=colour)
-        
+                    axis.scatter(data['teff'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour)
+                    bins=np.linspace(min(data['teff'+ending])-200,    max(data['teff'+ending])+200,10)
+                average=np.array([])
+                std=np.array([])
+                for value in range(len(bins)-1):
+                    if ending=="_Galah_iDR4":
+                        average=np.append(average,np.mean(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                    else:
+                        average=np.append(average,np.mean(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
+                axis.plot((bins[:-1]+bins[1:])/2,average,linewidth=0.5,c=colour)
+                axis.fill_between((bins[:-1]+bins[1:])/2,average-std,average+std,alpha=0.5,color=colour)
+            
+            for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
+                if ending=="_Galah_iDR4":
+                    axis.scatter(data['teff_spectroscopic'],data[col_dat.lower()],s=0.3,c=colour)
+                    bins=np.linspace(min(data['teff_spectroscopic'])-200,max(data['teff_spectroscopic'])+200,10)
+                else:
+                    axis.scatter(data['teff'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour)
+                    bins=np.linspace(min(data['teff'+ending])-200,max(data['teff'+ending])+200,10)
+                average=np.array([])
+                std=np.array([])
+                for value in range(len(bins)-1):
+                    if ending=="_Galah_iDR4":
+                        average=np.append(average,np.mean(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                    else:
+                        average=np.append(average,np.mean(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
+                axis.plot((bins[:-1]+bins[1:])/2,average,linewidth=0.5,c=colour)
+                axis.fill_between((bins[:-1]+bins[1:])/2,average-std,average+std,alpha=0.5,color=colour)
+
+        #put names in the plots 
         for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
-            if ending=="_Galah_iDR4":
-                axis.scatter(data['teff_spectroscopic'],data[col_dat.lower()],s=0.3,c=colour)
-                bins=np.linspace(min(data['teff_spectroscopic'])-200,max(data['teff_spectroscopic'])+200,10)
-            else:
-                axis.scatter(data['teff'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour)
-                bins=np.linspace(min(data['teff'+ending])-200,max(data['teff'+ending])+200,10)
-            average=np.array([])
-            std=np.array([])
-            for value in range(len(bins)-1):
-                if ending=="_Galah_iDR4":
-                    average=np.append(average,np.mean(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
-                    std=np.append(std,np.std(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
-                else:
-                    average=np.append(average,np.mean(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
-                    std=np.append(std,np.std(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
-            axis.plot((bins[:-1]+bins[1:])/2,average,linewidth=0.5,c=colour)
-            axis.fill_between((bins[:-1]+bins[1:])/2,average-std,average+std,alpha=0.5,color=colour)
+            axis.text(0.15,0.7,parameters[value],horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
+        ax[0].text(0.2,0.7,parameters[2],horizontalalignment='center',verticalalignment='center', transform=ax[0].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
+        ax[1].text(0.2,0.7,parameters[3],horizontalalignment='center',verticalalignment='center', transform=ax[1].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
+        ax[2].text(0.2,0.7,parameters[4],horizontalalignment='center',verticalalignment='center', transform=ax[2].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
 
-    #put names in the plots 
-    for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
-        axis.text(0.85,0.7,parameters[value],horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-    ax[0].text(0.85,0.7,parameters[2],horizontalalignment='center',verticalalignment='center', transform=ax[0].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-    ax[1].text(0.85,0.7,parameters[3],horizontalalignment='center',verticalalignment='center', transform=ax[1].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-    ax[2].text(0.8,0.7,parameters[4],horizontalalignment='center',verticalalignment='center', transform=ax[2].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-
-    for axis in ax[-5:]:
-        axis.set_xlabel(r'$T_{\rm{eff}}$')
-    for axis in ax[3:4]:
-        axis.set_xlabel(r'$T_{\rm{eff}}$')
-    for value,axis in enumerate(ax[4:]):
-        if value%shape[1]==0:
-            axis.text(-0.45,0.5,r'[x/Fe]' ,horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,rotation=90)
-    red_patch = mpatches.Patch(color='red', label=(cluster_1+endings[0]).replace("_", " "))
-    blue_patch = mpatches.Patch(color='blue', label=(cluster_2+endings[1]).replace("_", " "))
-    fig.legend(handles=[red_patch,blue_patch],loc=(0.71,0.905))
-    plt.tight_layout(w_pad=0.0,h_pad=-1.3)
-    plt.savefig(cluster_1+endings[0]+'_'+cluster_2+endings[1]+'masks_'+str(converged)+'_running_average.pdf',bbox_inches='tight')
+        for axis in ax[-5:]:
+            axis.set_xlabel(r'$T_{\rm{eff}}$')
+        for axis in ax[3:4]:
+            axis.set_xlabel(r'$T_{\rm{eff}}$')
+        for value,axis in enumerate(ax[4:]):
+            if value%shape[1]==0:
+                axis.text(-0.45,0.5,r'[x/Fe]' ,horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,rotation=90)
+        red_patch = mpatches.Patch(color='red', label=(cluster_1+endings[0]).replace("_", " "))
+        blue_patch = mpatches.Patch(color='blue', label=(cluster_2+endings[1]).replace("_", " "))
+        fig.legend(handles=[red_patch,blue_patch],loc=(0.71,0.905))
+        plt.tight_layout(w_pad=0.0,h_pad=-1.2)
+        fig.set_size_inches(6.97384806974,6.97384806974/7.6*8/1.6)
+        plt.savefig('/home/kevin/Documents/Paper/new/'+cluster_1+endings[0]+'_'+cluster_2+endings[1]+'masks_'+str(converged)+'_running_average.pdf',bbox_inches='tight')

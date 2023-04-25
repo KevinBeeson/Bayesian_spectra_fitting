@@ -18,6 +18,7 @@ from pathlib import Path
 
 from astropy.table import Table,vstack,join
 import matplotlib.pyplot as plt
+%matplotlib ipympl
 import numpy as np
 import csv
 from astropy.io import fits
@@ -41,7 +42,7 @@ all_reduced_data_old['gaia_id']=all_reduced_data_old['gaia_id'].astype(np.int64)
 
 
 #stacks all of bp_rp 
-cluster_name='upper_Scorpius'
+
 cluster_details_all = list(csv.reader(open('dr3_clusters.txt', 'rt'), delimiter=','))
 cluster_details_all = np.array(cluster_details_all)
 print(cluster_details_all[:,0])
@@ -89,10 +90,12 @@ x_line=np.linspace(min(x)-1000, max(x)+1000)
 ynew=np.poly1d(polynomial_coeff)
 
 fig=plt.figure()
-plt.scatter(cross_masked['teff_spectroscopic'],cross_masked['teff_photometric']-cross_masked['teff_spectroscopic'],c=cross_masked['logg_spectroscopic'],s=5.0)
+plt.scatter(cross_masked['teff_spectroscopic'],cross_masked['teff_photometric']-cross_masked['teff_spectroscopic'],s=1.0,c='black')
 plt.plot(x_line,ynew(x_line))
 plt.xlabel(r'Spectroscopic $T_{\rm{eff}}$/K')
-plt.ylabel(r'Photometric -Spectroscopic $T_{\rm{eff}}$/K')
+plt.ylabel(r'$\Delta T_{\rm{eff}}$/K')
+plt.xlim((cross_masked['teff_spectroscopic'].min()-100,cross_masked['teff_spectroscopic'].max()+100))
+plt.ylim((cross_masked['teff_photometric']-cross_masked['teff_spectroscopic']).min()-100,(cross_masked['teff_photometric']-cross_masked['teff_spectroscopic']).max()+100)
 # plt.xlim((3300,11000))
 # plt.ylim((-2600,3700))
 # plt.xlim((3700,6500))
@@ -101,7 +104,7 @@ plt.ylabel(r'Photometric -Spectroscopic $T_{\rm{eff}}$/K')
 fig.set_size_inches(3.32088003321,3.32088003321/1.61)
 plt.tight_layout()
 
-# plt.savefig('/home/kevin/Documents/Paper/'+cluster_name+' comparing spectroscopic vs photometric.pdf')
+plt.savefig('/home/kevin/Documents/Paper/all comparing spectroscopic vs photometric.pdf')
 
 cross_sven['coeff']=np.vstack([polynomial_coeff for x in range(len(cross_sven))])
 votable=from_table(cross_sven)

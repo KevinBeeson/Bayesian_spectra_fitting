@@ -36,7 +36,7 @@ import warnings
 from astropy.table import QTable
 from astropy.io.votable import parse,from_table,writeto
 
-cluster_name='Melotte_22'
+cluster_name='Ruprecht_147'
 votable = parse(cluster_name+"_photometric_cross.xml")
 cross_data=votable.get_first_table().to_table(use_names_over_ids=True)
 parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
