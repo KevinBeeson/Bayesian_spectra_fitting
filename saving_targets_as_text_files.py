@@ -24,6 +24,8 @@ import os.path
 import logging
 from astropy.table import Table,vstack
 import matplotlib.pyplot as plt
+from astropy.io.votable import parse,from_table,writeto
+
 import numpy as np
 from multiprocessing import Pool
 from astropy.io import fits
@@ -35,9 +37,22 @@ import functools
 from multiprocessing.dummy import Pool as ThreadPool 
 from scipy.stats import chi2
 import warnings
-cluster_name='Melotte_22'
 global large_data
-votable = parse(cluster_name+"_photometric_cross.xml")
+import csv
+votable = parse("open_cluster_photometric_cross.xml")
 photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+cluster_details_all = list(csv.reader(open('dr3_clusters.txt', 'rt'), delimiter=','))
+cluster_details_all = np.array(cluster_details_all)
+print(cluster_details_all[:,0])
+names=cluster_details_all[:,0]
 
-np.savetxt('melotte_22_targets.txt',photometric_data['sobject_id'].astype(str),fmt='%s')
+for name in names:
+    mask=photometric_data['cluster_name']==name
+    photometric_data_to_save=photometric_data[mask]
+    votable=from_table(photometric_data_to_save)
+    writeto(votable,name+"_photometric_cross.xml")
+
+    print(name)
+    print(len(photometric_data_to_save))
+
+    np.savetxt(name+'_targets.txt',photometric_data_to_save['sobject_id'].astype(str),fmt='%s')

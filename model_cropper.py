@@ -31,9 +31,9 @@ for x in limits:
     np.savez("NN_normalized_spectra_all_elements_3_"+x+".npz",\
             w_array_0 = w_array_0,\
             w_array_1 = w_array_1,\
-            w_array_2 = w_array_2,\
+            w_array_2 = w_array_2_new,\
             b_array_0 = b_array_0,\
             b_array_1 = b_array_1,\
-            b_array_2 = b_array_2,\
+            b_array_2 = b_array_2_new,\
             x_max=x_max,\
             x_min=x_min,)

@@ -22,6 +22,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 from astropy.io import fits
+plt.rcParams['font.family']='Times New Roman'
+plt.rcParams['xtick.direction']='in'
+plt.rcParams['ytick.direction']='in'
+plt.rcParams['text.usetex'] = True
 # import Galah_tool_py3 as gtools
 # import random
 svens_reduced_data=fits.getdata('galah_dr4_allspec_220713.fits',1)
@@ -108,7 +112,7 @@ plt.savefig('/home/kevin/Documents/Paper/all comparing spectroscopic vs photomet
 
 cross_sven['coeff']=np.vstack([polynomial_coeff for x in range(len(cross_sven))])
 votable=from_table(cross_sven)
-writeto(votable,"open_cluster_photometric_cross.xml")
+# writeto(votable,"open_cluster_photometric_cross.xml")
 
 plt.figure()
 plt.scatter(cross_sven['phot_g_mean_mag'],cross_sven['bp_rp'],c=cross_sven['teff_photometric'])

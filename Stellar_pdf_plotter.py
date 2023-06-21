@@ -676,8 +676,8 @@ def inner_plotter(axes,star,corners,fig):
     yy=star['logg_array']
     zz=star['probability_grid']
     ax2.contour(xx,yy,zz)
-    ax2.set_xlabel(r'$T_{\rm{eff}}$')
-    #ax2.set_ylabel(r'$\rm{log}(g)$') 
+    ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+    #ax2.set_ylabel(r'\small{log($g$)}') 
 plt.rcParams['font.family']='Times New Roman'
     
 from matplotlib.patches import ConnectionPatch
@@ -744,7 +744,7 @@ plt.rcParams['ytick.labelsize']=8
 plt.rcParams['xtick.labelsize']=8
 
 # inner_plotter([0.15, 0.70, 0.2, 0.25],data_small_run[len(data_small_run)//30],[0,0,0,1],fig)
-axes=[0.15, 0.67, 0.15, 0.20]
+axes=[0.20, 0.63, 0.13, 0.20]
 star=data_small_run[len(data_small_run)//30]
 corners=[1,1,1,0]
 
@@ -791,11 +791,17 @@ else:
         for temp_param in prior_parameters:           
             zz.append(normal(x,temp_param[0],temp_param[1])*normal(y,temp_param[2],temp_param[3]))
             
-# ax2.set_xlabel(r'$T_{\rm{eff}}$')
-#ax2.set_ylabel(r'$\rm{log}(g)$') 
+
 ax2.yaxis.set_label_position("right")
 ax2.yaxis.tick_right()    
-
+ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+ax2.set_ylabel(r'\small{log($g$)}')
+ax2.xaxis.set_ticks_position('top')
+ax2.xaxis.set_label_position('top')
+ax2.yaxis.set_ticks_position('left')
+ax2.yaxis.set_label_position('left')
+ax2.tick_params(axis='x', which='major', pad=0)
+ax2.xaxis.labelpad = 0
 axes=[0.15, 0.25, 0.15, 0.20]
 star=data_small_run[140]
 corners=[0,1,1,1]
@@ -844,8 +850,9 @@ else:
         for temp_param in prior_parameters:           
             zz.append(normal(x,temp_param[0],temp_param[1])*normal(y,temp_param[2],temp_param[3]))
 
-
-
+ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+ax2.set_ylabel(r'\small{log($g$)}')
+ax2.xaxis.labelpad = -5
 ax2.yaxis.set_label_position("right")
 ax2.yaxis.tick_right()    
 
@@ -902,6 +909,8 @@ else:
     ax2.contour(xx,yy,zz)
 ax2.set_xlim((4150,4350))
 ax2.set_ylim((4.63,4.66))
+ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+ax2.set_ylabel(r'\small{log($g$)}')
 
 ax2.yaxis.set_label_position("right")
 ax2.yaxis.tick_right()    
@@ -958,13 +967,16 @@ else:
     zz=np.reshape(zz,xx.shape)
     ax2.contour(xx,yy,zz)
 ax2.set_ylim((4.67,4.75))
-
+ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+ax2.set_ylabel(r'\small{log($g$)}')
+ax2.xaxis.set_ticks_position('top')
+ax2.xaxis.set_label_position('top')
 plt.tight_layout()
 fig.savefig('NGC_2682_BP_RP_full_stellar_parameters.pdf')
 
 
-# # ax2.set_xlabel(r'$T_{\rm{eff}}$')
-# #ax2.set_ylabel(r'$\rm{log}(g)$') 
+# # ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+# #ax2.set_ylabel(r'\small{log($g$)}') 
 # ax2.yaxis.set_label_position("right")
 # ax2.yaxis.tick_right()    
   
@@ -1018,8 +1030,8 @@ fig.savefig('NGC_2682_BP_RP_full_stellar_parameters.pdf')
 #         for temp_param in prior_parameters:           
 #             zz.append(normal(x,temp_param[0],temp_param[1])*normal(y,temp_param[2],temp_param[3]))
             
-# # ax2.set_xlabel(r'$T_{\rm{eff}}$')
-# #ax2.set_ylabel(r'$\rm{log}(g)$') 
+# # ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}')
+# #ax2.set_ylabel(r'\small{log($g$)}') 
 # ax2.yaxis.set_label_position("right")
 # ax2.yaxis.tick_right()    
 
@@ -1047,8 +1059,8 @@ fig.savefig('NGC_2682_BP_RP_full_stellar_parameters.pdf')
 # yy=star['logg_array']
 # zz=star['probability_grid']
 # ax2.contour(xx,yy,zz)
-# ax2.set_xlabel(r'$T_{\rm{eff}}$',size=8)
-# ax2.set_ylabel(r'$\rm{log}(g)$',size=8)
+# ax2.set_xlabel(r'\small{$T_{\rm{eff}}$}',size=8)
+# ax2.set_ylabel(r'\small{log($g$)}',size=8)
 # ax2.xaxis.set_label_position("top")
 # ax2.xaxis.tick_top()    
 

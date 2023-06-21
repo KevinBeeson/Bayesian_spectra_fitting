@@ -48,7 +48,7 @@ def get_isochrone(low_age,high_age,low_metalicty,high_metalicty,a_v,age_spacing=
 #    label=[]
 #    mags=[]
 #    imf=[]
-#    teff=[]
+#    logg=[]
 #    logg=[]
 
     #parameters other than default
@@ -352,8 +352,8 @@ print(cluster_details_all[:,0])
 # name=input('what isochrone do you want?')
 
 convergence=1
-parameters=['teff','logg','Fe/H','vmic','vbroad','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-parameters_index=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+parameters=['logg','logg','Fe/H','vmic','vbroad','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+parameters_index=['logg','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 parameters_new=[]
 for x in parameters_index:
@@ -366,11 +366,12 @@ cluster_1='NGC_2682'
 cluster_2='NGC_2682'
 file_name_1=cluster_1+'_no_normalization_.xml'
 file_name_2=cluster_2+'_no_normalization_.xml'
-circle_size=0.1
-colours=['red','blue']
+circle_size=0.3
+colours=['red','green']
 endings=['_prior','_Galah_iDR4']
 converged=True
-for name in cluster_details_all[:,0]:
+size_font=10
+for name in ['NGC_2682']:
     shape=(8,5)
 
     fig = plt.figure(figsize=shape)
@@ -386,9 +387,44 @@ for name in cluster_details_all[:,0]:
         for col in range(shape[1]):
             ax.append(plt.subplot2grid(shape=shape,loc=(row,col)))
     cluster_1=cluster_2=name
-    file_name_1=cluster_1+'_no_normalization_.xml'
-    file_name_2=cluster_2+'_no_normalization_.xml'
-    for file_name,colour,ending,cluster_name in zip([file_name_1,file_name_2],colours,endings,[cluster_1,cluster_2]):
+    file_name_1=cluster_1+'_no_normalization_with_new_sven.xml'
+    file_name_2=cluster_2+'_no_normalization_with_new_sven.xml'
+    votable = parse(file_name_1)
+    data_1=votable.get_first_table().to_table(use_names_over_ids=True)
+    votable = parse(file_name_2)
+    data_2=data_1.copy()
+    if converged:
+        # mask=data_1['flag_sp_old']==0
+        # data_1=data_1[mask]
+        # mask=data_2['flag_sp_old']==0
+        # data_2=data_2[mask]
+        mask=data_1['vsini_prior']<20
+        data_1=data_1[mask]
+        data_2=data_2[mask]
+        # mask=[len(x)>3 for x in data_1['radial_velocities_prior']]
+        # data_1=data_1[mask]
+        # data_2=data_2[mask]
+        
+        for elem in ['fe_h']:
+            print(elem)
+            mask=data_1[elem+'_prior']<np.nanpercentile(np.array(data_1[elem+'_prior']),99)
+            mask*=data_1[elem+'_prior']>np.nanpercentile(np.array(data_1[elem+'_prior']),1)
+            #if data is masked then 
+            masked=[np.ma.is_masked(x) for x in data_1[elem+'_prior']]
+            mask=np.logical_or(mask,masked)
+            mask*=data_2[elem+'_no_prior']<np.nanpercentile(np.array(data_2[elem+'_no_prior']),99)
+            mask*=data_2[elem+'_no_prior']>np.nanpercentile(np.array(data_2[elem+'_no_prior']),1)
+            
+            masked=[np.ma.is_masked(x) for x in data_2[elem+'_no_prior']]
+            mask=np.logical_or(mask,masked)
+
+            data_1=data_1[mask]
+            data_2=data_2[mask]
+            print(len(data_1))
+
+    #if one of the endings is 'Galah_iDR4' then we need to use the spectroscopic values and the other endings
+   #create bins here for both endings
+    for data,colour,ending,cluster_name in zip([data_1,data_2],colours,endings,[cluster_1,cluster_2]):
         cluster_details=[x for x in cluster_details_all if x[0]==cluster_name][0]
 
         low_age=float(cluster_details[1])
@@ -402,16 +438,9 @@ for name in cluster_details_all[:,0]:
         high_extinction=float(cluster_details[9])
 
         interpolate_scale=1
-        iso=isochrone(file_name,best_age,best_metalicty,best_extinction,special='Best_fit',high_age=best_age,high_metalicity=best_metalicty,iso_type='gaia',interpolate_scale=1)
+        iso=isochrone(name,best_age,best_metalicty,best_extinction,special='Best_fit',high_age=best_age,high_metalicity=best_metalicty,iso_type='gaia',interpolate_scale=1)
         iso=iso.isochrone
         # NGC_2682_summary_dr61
-        votable = parse(file_name)
-        data=votable.get_first_table().to_table(use_names_over_ids=True)
-        mask=data['vsini_prior']<20
-        data=data[mask]
-        if converged:
-            mask=data['flag_sp']==0
-            data=data[mask]
         if len(data)!=0:
             size_font=10
             iso_type='gaia'
@@ -421,84 +450,115 @@ for name in cluster_details_all[:,0]:
 
             
             if ending=="_Galah_iDR4":
-                ax1.scatter(data['teff_spectroscopic'],data['logg_spectroscopic'],s=0.3,c=colour)
+                ax1.scatter(data['teff'],data['logg'],s=circle_size,c=colour,linewidths=0)
             else:
                 teff,logg=converged_data('teff'+ending,'logg'+ending)
-                ax1.scatter(teff,logg,s=0.3,c=colour)
+                ax1.scatter(teff,logg,s=0.3,c=colour,linewidths=0)
             ax1.set_xlabel(r'$T_{\rm{eff}}$')
             ax1.xaxis.set_label_position('top') 
             ax1.tick_params('x', top=True, labeltop=True,bottom=False,labelbottom=False)
             ax1.set_xlim(min(min(data['teff_prior']),min(data['teff_no_prior'])),max(max(data['teff_prior']),max(data['teff_no_prior'])))
             ax1.set_ylim(min(min(data['logg_prior']),min(data['logg_no_prior'])),max(max(data['logg_prior']),max(data['logg_no_prior'])))
 
-            # x=np.array(data['teff'],dtype=float)
+            # x=np.array(data['logg'],dtype=float)
             # y=np.array(data['logg'],dtype=float)
             # nbins=300
             # k = kde.gaussian_kde([x,y])
             # xi, yi = np.mgrid[x.min():x.max():nbins*1j, y.min():y.max():nbins*1j]
             # zi = k(np.vstack([xi.flatten(), yi.flatten()]))
             # ax1.contour(xi, yi, zi.reshape(xi.shape),levels=5)
-            ax1.plot(10**iso[:,2],iso[:,-2],label=r'Best fit',c=colour,linewidth=0.8)
+            ax1.plot(10**iso[:,2],iso[:,-2],label=r'Best fit',c='black',linewidth=0.8)
 
             ax1.text(-0.125 ,0.5,r'log(\small $g$)' ,horizontalalignment='center',verticalalignment='center', transform=ax1.transAxes,rotation=90)
 
             ax1.invert_yaxis()
             ax1.invert_xaxis()
             for value,(axis,col_dat) in enumerate(zip(ax[:3],parameters_index[2:5]),2):
-                if ending=="_Galah_iDR4":
-                    axis.scatter(data['teff_spectroscopic'],data[col_dat.lower()],s=0.3,c=colour)
-                    bins=np.linspace(min(data['teff_spectroscopic'])+200,max(data['teff_spectroscopic'])-200,10)
+                if '_Galah_iDR4' in endings:
+                    if endings[0]=='_Galah_iDR4':
+                        bins=np.linspace(min(min(data_1['logg']),min(data_2['logg'+endings[1]]))-0.1,max(max(data_1['logg']),max(data_2['logg'+endings[1]]))+0.1,10)
+                    else:
+                        bins=np.linspace(min(min(data_1['logg'+endings[0]]),min(data_2['logg']))-0.1,max(max(data_1['logg'+endings[0]]),max(data_2['logg']))+0.1,10)
                 else:
-                    axis.scatter(data['teff'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour)
-                    bins=np.linspace(min(data['teff'+ending])-200,    max(data['teff'+ending])+200,10)
+                    mask=data_1[col_dat+endings[0]]>-10
+                    data_temp_1=data_1[mask] 
+                    mask=data_2[col_dat+endings[1]]>-10
+                    data_temp_2=data_2[mask]      
+                    bins=np.linspace(min(min(data_temp_1['logg'+endings[0]]),min(data_temp_2['logg'+endings[1]]))-0.1,max(max(data_temp_1['logg'+endings[0]]),max(data_temp_2['logg'+endings[1]]))+0.1,10)
+                
+                if ending=="_Galah_iDR4":
+                    axis.scatter(data['logg'],data[col_dat.lower()+'_sven'],s=0.3,c=colour,alpha=0.3,linewidths=0)
+                else:
+                    axis.scatter(data['logg'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour,alpha=0.3,linewidths=0)
                 average=np.array([])
                 std=np.array([])
                 for value in range(len(bins)-1):
                     if ending=="_Galah_iDR4":
-                        average=np.append(average,np.mean(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
-                        std=np.append(std,np.std(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                        average=np.append(average,np.mean(data[col_dat.lower()+'_sven'][np.where((data['logg']>bins[value]) & (data['logg']<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat.lower()+'_sven'][np.where((data['logg']>bins[value]) & (data['logg']<bins[value+1]))]))
                     else:
-                        average=np.append(average,np.mean(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
-                        std=np.append(std,np.std(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
+                        average=np.append(average,np.mean(data[col_dat+ending][np.where((data['logg' +ending]>bins[value]) & (data['logg' +ending]<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat+ending][np.where((data['logg' +ending]>bins[value]) & (data['logg' +ending]<bins[value+1]))]))
                 axis.plot((bins[:-1]+bins[1:])/2,average,linewidth=0.5,c=colour)
                 axis.fill_between((bins[:-1]+bins[1:])/2,average-std,average+std,alpha=0.5,color=colour)
             
             for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
-                if ending=="_Galah_iDR4":
-                    axis.scatter(data['teff_spectroscopic'],data[col_dat.lower()],s=0.3,c=colour)
-                    bins=np.linspace(min(data['teff_spectroscopic'])-200,max(data['teff_spectroscopic'])+200,10)
+                if '_Galah_iDR4' in endings:
+                    if endings[0]=='_Galah_iDR4':
+                        bins=np.linspace(min(min(data_1['logg']),min(data_2['logg'+endings[1]]))-0.1,max(max(data_1['logg']),max(data_2['logg'+endings[1]]))+0.1,10)
+                    else:
+                        bins=np.linspace(min(min(data_1['logg'+endings[0]]),min(data_2['logg']))-0.1,max(max(data_1['logg'+endings[0]]),max(data_2['logg']))+0.1,10)
                 else:
-                    axis.scatter(data['teff'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour)
-                    bins=np.linspace(min(data['teff'+ending])-200,max(data['teff'+ending])+200,10)
+                    mask=data_1[col_dat+endings[0]]>-10
+                    data_temp_1=data_1[mask] 
+                    mask=data_2[col_dat+endings[1]]>-10
+                    data_temp_2=data_2[mask]
+                    if len(data_temp_1)==0:
+                        bins=np.linspace(min(data_temp_2))
+                    else:    
+                        bins=np.linspace(min(min(data_temp_1['logg'+endings[0]]),min(data_temp_2['logg'+endings[1]]))-0.1,max(max(data_temp_1['logg'+endings[0]]),max(data_temp_2['logg'+endings[1]]))+0.1,10)
+                
+                if ending=="_Galah_iDR4":
+                    axis.scatter(data['logg'],data[col_dat.lower()+'_sven'],s=circle_size,c=colour,alpha=0.3,linewidths=0)
+                else:
+                    axis.scatter(data['logg'+ending],data[col_dat+ending],s=circle_size,marker=',',c=colour,alpha=0.3,linewidths=0)
                 average=np.array([])
                 std=np.array([])
                 for value in range(len(bins)-1):
                     if ending=="_Galah_iDR4":
-                        average=np.append(average,np.mean(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
-                        std=np.append(std,np.std(data[col_dat.lower()][np.where((data['teff_spectroscopic']>bins[value]) & (data['teff_spectroscopic']<bins[value+1]))]))
+                        average=np.append(average,np.mean(data[col_dat.lower()+'_sven'][np.where((data['logg']>bins[value]) & (data['logg']<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat.lower()+'_sven'][np.where((data['logg']>bins[value]) & (data['logg']<bins[value+1]))]))
                     else:
-                        average=np.append(average,np.mean(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
-                        std=np.append(std,np.std(data[col_dat+ending][np.where((data['teff_prior']>bins[value]) & (data['teff_prior']<bins[value+1]))]))
+                        average=np.append(average,np.mean(data[col_dat+ending][np.where((data['logg' +ending]>bins[value]) & (data['logg' +ending]<bins[value+1]))]))
+                        std=np.append(std,np.std(data[col_dat+ending][np.where((data['logg' +ending]>bins[value]) & (data['logg' +ending]<bins[value+1]))]))
                 axis.plot((bins[:-1]+bins[1:])/2,average,linewidth=0.5,c=colour)
                 axis.fill_between((bins[:-1]+bins[1:])/2,average-std,average+std,alpha=0.5,color=colour)
-
-        #put names in the plots 
+        #         if ending!="_Galah_iDR4":
+        #             axis.set_ylim(np.nanpercentile(np.array(data[col_dat+ending]),3)-0.05,np.nanpercentile(np.array(data[col_dat+ending]),97)+0.05)
+        #         else:
+        #             axis.set_ylim(np.nanpercentile(np.array(data[col_dat.lower()+'_sven']),3)-0.05,np.nanpercentile(np.array(data[col_dat.lower()+'_sven']),97)+0.05)
+        # #put names in the plots 
         for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
-            axis.text(0.15,0.7,parameters[value],horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-        ax[0].text(0.2,0.7,parameters[2],horizontalalignment='center',verticalalignment='center', transform=ax[0].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-        ax[1].text(0.2,0.7,parameters[3],horizontalalignment='center',verticalalignment='center', transform=ax[1].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
-        ax[2].text(0.2,0.7,parameters[4],horizontalalignment='center',verticalalignment='center', transform=ax[2].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
+            axis.text(0.15,0.7,parameters[value],horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.3))
+        ax[0].text(0.2,0.7,parameters[2],horizontalalignment='center',verticalalignment='center', transform=ax[0].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.3))
+        ax[1].text(0.2,0.7,parameters[3],horizontalalignment='center',verticalalignment='center', transform=ax[1].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.3))
+        ax[2].text(0.3,0.7,parameters[4],horizontalalignment='center',verticalalignment='center', transform=ax[2].transAxes,c='black',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.3))
+        #reverse the x axis for all ax
+
 
         for axis in ax[-5:]:
-            axis.set_xlabel(r'$T_{\rm{eff}}$')
+            axis.set_xlabel(r'log($g$)')
         for axis in ax[3:4]:
-            axis.set_xlabel(r'$T_{\rm{eff}}$')
+            axis.set_xlabel(r'log($g$)')
         for value,axis in enumerate(ax[4:]):
             if value%shape[1]==0:
                 axis.text(-0.45,0.5,r'[x/Fe]' ,horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,rotation=90)
         red_patch = mpatches.Patch(color='red', label=(cluster_1+endings[0]).replace("_", " "))
         blue_patch = mpatches.Patch(color='blue', label=(cluster_2+endings[1]).replace("_", " "))
-        fig.legend(handles=[red_patch,blue_patch],loc=(0.71,0.905))
-        plt.tight_layout(w_pad=0.0,h_pad=-1.2)
-        fig.set_size_inches(6.97384806974,6.97384806974/7.6*8/1.6)
-        plt.savefig('/home/kevin/Documents/Paper/new/'+cluster_1+endings[0]+'_'+cluster_2+endings[1]+'masks_'+str(converged)+'_running_average.pdf',bbox_inches='tight')
+        # fig.legend(handles=[red_patch,blue_patch],loc=(0.71,0.905))
+    for axis in ax:
+        axis.set_xlim(axis.get_xlim()[::-1])
+    fig.set_size_inches(6.97384806974,6)
+    plt.tight_layout(w_pad=0.0,h_pad=-1.5)
+    #plt.savefig('test_2.pdf')
+    plt.savefig('/home/kevin/Documents/Paper/new/'+cluster_1+endings[0]+'_'+cluster_2+endings[1]+'_masks_'+str(converged)+'_running_average_logg.pdf',bbox_inches='tight')

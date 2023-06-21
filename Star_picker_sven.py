@@ -35,13 +35,13 @@ all_reduced_data=join(all_reduced_data,all_reduced_data_dr61,'sobject_id')
 mask=all_reduced_data['flag_sp']==0 
 all_reduced_data=all_reduced_data[mask]
 
-mask=all_reduced_data['teff']<4650 
+mask=all_reduced_data['teff']<4700 
 all_reduced_data=all_reduced_data[mask]
-mask=all_reduced_data['teff']>4350
+mask=all_reduced_data['teff']>4300
 all_reduced_data=all_reduced_data[mask]
-mask=all_reduced_data['logg']>4.35
+mask=all_reduced_data['logg']>4.40
 all_reduced_data=all_reduced_data[mask]
-mask=all_reduced_data['logg']<4.45
+mask=all_reduced_data['logg']<4.60
 all_reduced_data=all_reduced_data[mask]
 
 mask=all_reduced_data['fe_h']<-0.225
@@ -50,7 +50,8 @@ mask=all_reduced_data['fe_h']>-0.275
 all_reduced_data=all_reduced_data[mask]
 
 all_reduced_data.sort('e_fe_h')
-all_reduced_data=all_reduced_data[:20]
+#done as the first data peice of data is lacks the IR band
+all_reduced_data=all_reduced_data[1:20]
 
 votable=from_table(all_reduced_data)
 writeto(votable,"svens_testing_stars.xml")

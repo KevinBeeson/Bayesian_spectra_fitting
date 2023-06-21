@@ -2201,7 +2201,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
                 solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
                 high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
                 change=max([median_value,low_value,high_value])-min([median_value,low_value,high_value])
-                if change>50:
+                if change>70:
                     elem_good.append(param)
         parameters_main_loop=parameters_no_elements[:5]
         parameters_main_loop=np.hstack((parameters_main_loop,elem_good))
@@ -2298,7 +2298,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         else:
             file_directory += run_name+'no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
-# main_analysis(160106001601078,prior=True,ncpu=3)
+# main_analysis(160106001601078,prior=True,ncpu=3,cluster_name="Melotte_22")
 # top# votable = parse("Ruprecht_147_photometric_cross.xml")
 # # global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)

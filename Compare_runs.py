@@ -24,10 +24,10 @@ from os.path import exists
 import csv
 from scipy.interpolate import interp1d
 name='Melotte_22'
-votable = parse(name+"_fixed_iron_final_2.xml")
+votable = parse(name+"_3_fixed_iron.xml")
 data_slow=votable.get_first_table().to_table(use_names_over_ids=True)
 
-votable = parse(name+"_fast.xml")
+votable = parse(name+"_fixed_iron_final_2.xml")
 data_fast=votable.get_first_table().to_table(use_names_over_ids=True)
 
 parameters_index=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']

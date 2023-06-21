@@ -64,10 +64,13 @@ def payne_sythesize(solar_values,x_min,x_max,NN_coeffs,grad=False):
             real_spec =np.einsum('ij,j->i', w_array_2,limit_2)+ b_array_2
             grad_return=np.dot(grad_return,w_array_2.T)
             return real_spec,grad_return
-        
+plt.rcParams['font.family']='Times New Roman'
+plt.rcParams['xtick.direction']='in'
+plt.rcParams['ytick.direction']='in'
+plt.rcParams['text.usetex'] = True      
 limits={'Blue':[4705,4908],'Green':[5643,5879],'Red':[6470,6743],'IR':[7577.0,7894.0]}
 colour='Blue'        
-tmp = np.load("NN_normalized_spectra_Blue_smaller.npz")
+tmp = np.load("NN_normalized_spectra_all_elements_2_Blue.npz")
 w_array_0 = tmp["w_array_0"]
 w_array_1 = tmp["w_array_1"]
 w_array_2 = tmp["w_array_2"]
@@ -79,10 +82,10 @@ x_max = tmp["x_max"]
 tmp.close()
 NN_coeffs= (w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, x_min, x_max)
 length_synthetic=np.linspace(limits[colour][0], limits[colour][1],num=len(b_array_2))
-data_training=np.load('Blue_band_5000_6000_data_training.npy',allow_pickle=True)
+data_training=np.load('validation_data_all_elements_Blue.npy',allow_pickle=True)
 spectra=data_training
-labels=np.load('Blue_band_5000_6000_training_labels.npy',allow_pickle=True)
-spectra_synthetic=[payne_sythesize(x,x_min,x_max,NN_coeffs) for x in labels]
+labels=np.load('validation_labels_all_elements_Blue.npy',allow_pickle=True)
+spectra_synthetic=[payne_sythesize(x.astype(float),x_min,x_max,NN_coeffs) for x in labels]
 diff=[abs(x-y) for (x,y) in zip(spectra_synthetic,spectra)]
 diff=np.vstack(diff)
 diff_from_individual_mean=[abs(x-np.mean(x)) for x in spectra]
@@ -105,9 +108,9 @@ for y in range(split):
     temp_synthetic_length=length_synthetic[y*split_amount:(y+1)*split_amount]
     temp_mean=mean_diff[0][y*split_amount:(y+1)*split_amount]
     
-    plt.figure(figsize=(6,2))   
+    fig=plt.figure(figsize=(6,2))   
     plt.plot(temp_synthetic_length,np.transpose(temp_mean),label=r'Mean difference')
-    plt.ylabel(r'Normalized flux')
+    plt.ylabel(r'$\Delta$ flux')
     for individual_line in important_lines:
         if float(individual_line[1])>temp_synthetic_length[0] and float(individual_line[1])<temp_synthetic_length[-1]:
                 plt.axvline(x=float(individual_line[1]),color='red',label=r'Important lines',zorder=0)
@@ -118,15 +121,16 @@ for y in range(split):
     if y==split-1:
         plt.xlabel(r'Wavelength / $\mathrm{\AA}$')
     plt.legend(by_label.values(), by_label.keys(),loc='upper right')
-    plt.tight_layout()
+    fig.set_size_inches(3.32088003321,3.32088003321/1.61)
+    plt.tight_layout(pad=0.1)
     plt.savefig('mean difference '+ colour+str(y)+'.pdf')
 for y in range(split):
     split_amount=len(length_synthetic)//split
     temp_synthetic_length=length_synthetic[y*split_amount:(y+1)*split_amount]
     temp_max=max_diff[0][y*split_amount:(y+1)*split_amount]
-    plt.figure(figsize=(6,2))   
+    fig=plt.figure(figsize=(6,2))   
     plt.plot(temp_synthetic_length,np.transpose(temp_max),label=r'Max difference')
-    plt.ylabel(r'Normalized flux')
+    plt.ylabel(r'$\Delta$ flux')
     for individual_line in important_lines:
         if float(individual_line[1])>temp_synthetic_length[0] and float(individual_line[1])<temp_synthetic_length[-1]:
                 plt.axvline(x=float(individual_line[1]),color='red',label=r'Important lines',zorder=0)
@@ -137,28 +141,29 @@ for y in range(split):
     if y==split-1:
         plt.xlabel(r'Wavelength / $\mathrm{\AA}$')
     plt.legend(by_label.values(), by_label.keys(),loc='upper right')
+    fig.set_size_inches(3.32088003321,3.32088003321/1.61)
     plt.tight_layout()
     plt.savefig('max difference '+ colour+str(y)+'.pdf')
     
-for y in range(split):
-    split_amount=len(length_synthetic)//split
-    temp_synthetic_length=length_synthetic[y*split_amount:(y+1)*split_amount]
-    temp_mean=ratio[y*split_amount:(y+1)*split_amount]
+# for y in range(split):
+#     split_amount=len(length_synthetic)//split
+#     temp_synthetic_length=length_synthetic[y*split_amount:(y+1)*split_amount]
+#     temp_mean=ratio[y*split_amount:(y+1)*split_amount]
     
-    plt.figure(figsize=(6,2))   
-    plt.plot(temp_synthetic_length,np.transpose(temp_mean),label=r'Mean difference')
-    plt.ylabel(r'Normalized flux')
-    for individual_line in important_lines:
-        if float(individual_line[1])>temp_synthetic_length[0] and float(individual_line[1])<temp_synthetic_length[-1]:
-                plt.axvline(x=float(individual_line[1]),color='red',label=r'Important lines',zorder=0)
-                # plt.text(float(individual_line[1]),0.02,individual_line[0][:2],fontsize=20,ha='center',color='red')
-    plt.xlim((temp_synthetic_length[0],temp_synthetic_length[-1]))
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    if y==split-1:
-        plt.xlabel(r'Wavelength / $\mathrm{\AA}$')
-    plt.legend(by_label.values(), by_label.keys(),loc='upper right')
-    plt.tight_layout()
+#     plt.figure(figsize=(6,2))   
+#     plt.plot(temp_synthetic_length,np.transpose(temp_mean),label=r'Mean difference')
+#     plt.ylabel(r'Normalized flux')
+#     for individual_line in important_lines:
+#         if float(individual_line[1])>temp_synthetic_length[0] and float(individual_line[1])<temp_synthetic_length[-1]:
+#                 plt.axvline(x=float(individual_line[1]),color='red',label=r'Important lines',zorder=0)
+#                 # plt.text(float(individual_line[1]),0.02,individual_line[0][:2],fontsize=20,ha='center',color='red')
+#     plt.xlim((temp_synthetic_length[0],temp_synthetic_length[-1]))
+#     handles, labels = plt.gca().get_legend_handles_labels()
+#     by_label = dict(zip(labels, handles))
+#     if y==split-1:
+#         plt.xlabel(r'Wavelength / $\mathrm{\AA}$')
+#     plt.legend(by_label.values(), by_label.keys(),loc='upper right')
+#     plt.tight_layout()
 # for value,lab in enumerate(labels):
 #     print(value)
 #     payne_sythesize(lab,x_min,x_max,NN_coeffs)

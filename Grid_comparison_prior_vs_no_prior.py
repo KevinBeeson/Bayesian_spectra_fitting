@@ -354,7 +354,7 @@ cluster_details_all = np.array(cluster_details_all)
 print(cluster_details_all[:,0])
 # name=input('what isochrone do you want?')
 convergence=1
-name='Melotte_22'
+name='Ruprecht_147'
 cluster_details=[x for x in cluster_details_all if x[0]==name][0]
 
 low_age=float(cluster_details[1])
@@ -371,7 +371,7 @@ interpolate_scale=1
 iso=isochrone(name,best_age,best_metalicty,best_extinction,special='Best_fit',high_age=best_age,high_metalicity=best_metalicty,iso_type='gaia',interpolate_scale=1)
 iso=iso.isochrone
 # NGC_2682_summary_dr61
-votable = parse(name+"_fixed.xml")
+votable = parse(name+"_no_normalization_.xml")
 data=votable.get_first_table().to_table(use_names_over_ids=True)
 size_font=10
 iso_type='gaia'
@@ -432,8 +432,10 @@ for value,(axis,col_dat) in enumerate(zip(ax[:3],parameters_index[2:5]),2):
     abundances=converged_data(col_dat+'_prior')
 
     axis.hist(abundances,density=False,alpha=0.5,color='red')
-    temp_data=np.hstack([x for x in data[col_dat.lower()] if not np.isnan(x)])
-    axis.hist(temp_data,density=False,alpha=0.5,color='green')
+    temp_data=[x for x in data[col_dat.lower()] if not np.ma.is_masked(x)]
+    if len(temp_data):
+        temp_data=np.hstack(temp_data)
+        axis.hist(temp_data,density=False,alpha=0.5,color='green')
 
 for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
     abundances=converged_data(col_dat+'_no_prior')
@@ -441,8 +443,10 @@ for value,(axis,col_dat) in enumerate(zip(ax[3:],parameters_index[5:]),5):
     abundances=converged_data(col_dat+'_prior')
 
     axis.hist(abundances,density=False,alpha=0.5,color='red')
-    temp_data=np.hstack([x for x in data[col_dat.lower()] if not np.isnan(x)])
-    axis.hist(temp_data,density=False,alpha=0.5,color='green')
+    temp_data=[x for x in data[col_dat.lower()] if not np.ma.is_masked(x)]
+    if len(temp_data):
+        temp_data=np.hstack(temp_data)
+        axis.hist(temp_data,density=False,alpha=0.5,color='green')
 
     axis.text(0.9,0.70,parameters[value],horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,c='red',size=size_font,bbox=dict(facecolor='white', edgecolor='none', pad=1.0,alpha=0.5))
 
@@ -471,7 +475,7 @@ for axis in ax[3:4]:
 #         axis.text(-0.45,0.5,r'frecuency' ,horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,rotation=90,size=9)
 
 plt.tight_layout(w_pad=0.0,h_pad=-1.)
-plt.savefig('Melotte_22_prior_vs_everything_hist.pdf')
+plt.savefig(name+'_histogram.pdf')
 
 shape=(8,5)
 
@@ -508,7 +512,7 @@ ax1.set_ylim(min(min(data['logg_no_prior']),min(data['logg_prior'])),max(max(dat
 ax1.plot(10**iso[:,2],iso[:,-2],label=r'Best fit',c='black',linewidth=0.8)
 
 ax1.text(-0.125 ,0.5,r'log($g$)' ,horizontalalignment='center',verticalalignment='center', transform=ax1.transAxes,rotation=90)
-circle_size=0.5
+circle_size=0.1
 ax1.invert_yaxis()
 ax1.invert_xaxis()
 for value,(axis,col_dat) in enumerate(zip(ax[:3],parameters_index[2:5]),2):
@@ -549,4 +553,19 @@ for value,axis in enumerate(ax[4:]):
         axis.text(-0.45,0.5,r'[x/Fe]' ,horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,rotation=90)
 
 plt.tight_layout(w_pad=0.0,h_pad=-1.)
-plt.savefig('Melotte_22_prior_vs_everything_scatter.pdf')
+plt.savefig(name+'_scatter.pdf')
+
+fig, ax = plt.subplots(1,1)
+prior_variance=[]
+no_prior_variance=[]
+for label in parameters_index:
+    abundances=converged_data(label+'_no_prior')
+    no_prior_variance.append(np.sqrt(np.var(abundances)))
+    abundances=converged_data(label+'_prior')
+    prior_variance.append(np.sqrt(np.var(abundances)))
+
+x=np.linspace(0,len(no_prior_variance),num=len(no_prior_variance))
+plt.plot(np.array(prior_variance)/np.array(no_prior_variance))
+ax.set_xticks(x)
+# Set ticks labels for x-axis
+ax.set_xticklabels(parameters)

@@ -275,7 +275,7 @@ class spectrum_all:
             rsetattr(self,x+'.vrad_flag','whole')
             rsetattr(self,x+'.cscale_flag','none')
             rsetattr(self,x+'.cscale_type','mask')
-            rsetattr(self,x+'.atmo.source',"marcs2012.sav")
+            rsetattr(self,x+'.atmo.source',"marcs2012p_t1.0.sav")
             rsetattr(self,x+'.atmo.method','grid')
             rsetattr(self,x+'.atmo.geom','pp')
             runGetattr(self,x+'.nlte.set_nlte')("Fe", "nlte_Fe_ama51_Feb2022_pysme.grd")
@@ -476,294 +476,294 @@ all_galah=all_galah[1].data
 large_shift=[]
 number_shift=[]
 spectras=spectrum_all(170517002801129,10)
-i_dr4=fits.getdata('galah_dr4_allspec_220713.fits',1)
-i_dr4=Table(i_dr4)
-mask = i_dr4['flag_sp']==0
-i_dr4=i_dr4[mask]
-mask =i_dr4['e_fe_h']!=np.inf
-i_dr4=i_dr4[mask]
+# i_dr4=fits.getdata('galah_dr4_allspec_220713.fits',1)
+# i_dr4=Table(i_dr4)
+# mask = i_dr4['flag_sp']==0
+# i_dr4=i_dr4[mask]
+# mask =i_dr4['e_fe_h']!=np.inf
+# i_dr4=i_dr4[mask]
 
-large_data_GALAH_official=fits.open('gaia_galah_cross_values.fits')
-large_data_GALAH_official=Table(large_data_GALAH_official[1].data)
-large_data_GALAH_official['sobject_id']=np.array(large_data_GALAH_official['sobject_id'],dtype='int64')
-dr3_data=fits.getdata('GALAH_DR3_main_200331.fits',1)
-dr3_data=Table(dr3_data)
+# large_data_GALAH_official=fits.open('gaia_galah_cross_values.fits')
+# large_data_GALAH_official=Table(large_data_GALAH_official[1].data)
+# large_data_GALAH_official['sobject_id']=np.array(large_data_GALAH_official['sobject_id'],dtype='int64')
+# dr3_data=fits.getdata('GALAH_DR3_main_200331.fits',1)
+# dr3_data=Table(dr3_data)
 
-cross_data=join(large_data_GALAH_official,dr3_data,keys_left='sobject_id',keys_right='sobject_id')
+# cross_data=join(large_data_GALAH_official,dr3_data,keys_left='sobject_id',keys_right='sobject_id')
 
-cross_data.sort('logg_2')
+# cross_data.sort('logg_2')
 
-plt.figure()
-plt.scatter(cross_data['teff_2'][::18],cross_data['logg_2'][::18])
-parameters_names=['teff_2','logg_2','fe_h_2','vmic_2','vbroad_2']
-elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-elem_mean=[]
-elem_sig=[]
-for elem in elements:
-    elem_mean.append(np.nanmean(i_dr4[elem.lower()+'_fe']))
-    elem_sig.append(np.sqrt(np.nanvar(i_dr4[elem.lower()+'_fe'])))
-fe_h_mean=np.nanmean(i_dr4['fe_h'])
-fe_h_sig=np.nanmean(i_dr4['e_fe_h'])
-elem_max=[ 3.39219427e+00, 1.50000000e+00, 1.50000000e+00,
-2.00000000e+00,0.7e+00,0.7e+00,1.2e+00,
-1.0e+00,1.0e+00,1.0e+00,0.7e+00,
-0.9e+0,0.7e+00,0.7e+00,1.0e+00,
-0.8e+0,0.7e+00,0.7e+00,1.0e+00,
-1.50000000e+00,1.0e+00, 1.00000000e+00,1.0e+00,
-0.7e+0,1.0e+00, 1.20000000e+00, 1.30000000e+00,
-1.30000000e+00, 1.20000000e+00,1.0e+00,1.0e+00]
-elem_min=[-1.5e0,-1.0e+00,-1.5e+00,
--1.50000000e+00,-0.7e+00, -1.00000000e-0,-0.7e+00,
--5.00000000e-01,-1.0e+00,-0.7e+00,-0.7e+00,
--5.00000000e-01,-0.7e+00,-0.7e+00,-0.7e+00,
--0.7e+0,-0.7e+00,-0.7e+00,-1.0e+00,
--1.80000000e+00,-1.0e+00,-1.0e+00,-1.0e+00,
--1.0e+0, -2.00000000e+00,-1.0e+00,-0.7e+00,
--1.0e+0,-1.0e+00,-1.0e+00,-1.0e+00]
-parameters=[100,0.5,0.5,5,5]
-hard_limits_low=[3000,0.5,-1.5,0,0.1]
-hard_limits_high=[8500,5,1.0,5,150]
-np.random.seed(0)
-cross_short=cross_data[::13]
-param_to_compute=[]
-# for star in cross_short:
-#     star=cross_short[0]
-#     param_temp=[star['teff_2'],star['logg_2'],np.random.normal(fe_h_mean,fe_h_sig*3,1)[0],star['vmic_2'],star['vbroad_2']]
-#     param_temp=np.hstack((param_temp,np.zeros(31)))
-#     if len (param_to_compute)==0:
-#         param_to_compute=param_temp
-#     param_to_compute=np.vstack((param_to_compute,param_temp))
-#     for value,shift in enumerate(parameters):
-#         to_shift=copy.copy(param_temp)
-#         to_shift[value]+=shift
-#         param_to_compute=np.vstack((param_to_compute,to_shift))
-#         to_shift=copy.copy(param_temp)
-#         to_shift[value]-=shift
-#         if value==1:
-#             if to_shift[value]<0.5:
-#                 to_shift[value]=0.5
-#         param_to_compute=np.vstack((param_to_compute,to_shift))
+# plt.figure()
+# plt.scatter(cross_data['teff_2'][::18],cross_data['logg_2'][::18])
+# parameters_names=['teff_2','logg_2','fe_h_2','vmic_2','vbroad_2']
+# elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+# elem_mean=[]
+# elem_sig=[]
+# for elem in elements:
+#     elem_mean.append(np.nanmean(i_dr4[elem.lower()+'_fe']))
+#     elem_sig.append(np.sqrt(np.nanvar(i_dr4[elem.lower()+'_fe'])))
+# fe_h_mean=np.nanmean(i_dr4['fe_h'])
+# fe_h_sig=np.nanmean(i_dr4['e_fe_h'])
+# elem_max=[ 3.39219427e+00, 1.50000000e+00, 1.50000000e+00,
+# 2.00000000e+00,0.7e+00,0.7e+00,1.2e+00,
+# 1.0e+00,1.0e+00,1.0e+00,0.7e+00,
+# 0.9e+0,0.7e+00,0.7e+00,1.0e+00,
+# 0.8e+0,0.7e+00,0.7e+00,1.0e+00,
+# 1.50000000e+00,1.0e+00, 1.00000000e+00,1.0e+00,
+# 0.7e+0,1.0e+00, 1.20000000e+00, 1.30000000e+00,
+# 1.30000000e+00, 1.20000000e+00,1.0e+00,1.0e+00]
+# elem_min=[-1.5e0,-1.0e+00,-1.5e+00,
+# -1.50000000e+00,-0.7e+00, -1.00000000e-0,-0.7e+00,
+# -5.00000000e-01,-1.0e+00,-0.7e+00,-0.7e+00,
+# -5.00000000e-01,-0.7e+00,-0.7e+00,-0.7e+00,
+# -0.7e+0,-0.7e+00,-0.7e+00,-1.0e+00,
+# -1.80000000e+00,-1.0e+00,-1.0e+00,-1.0e+00,
+# -1.0e+0, -2.00000000e+00,-1.0e+00,-0.7e+00,
+# -1.0e+0,-1.0e+00,-1.0e+00,-1.0e+00]
+# parameters=[100,0.5,0.5,5,5]
+# hard_limits_low=[3000,0.5,-1.5,0,0.1]
+# hard_limits_high=[8500,5,1.0,5,150]
+# np.random.seed(0)
+# cross_short=cross_data[::13]
+# param_to_compute=[]
+# # for star in cross_short:
+# #     star=cross_short[0]
+# #     param_temp=[star['teff_2'],star['logg_2'],np.random.normal(fe_h_mean,fe_h_sig*3,1)[0],star['vmic_2'],star['vbroad_2']]
+# #     param_temp=np.hstack((param_temp,np.zeros(31)))
+# #     if len (param_to_compute)==0:
+# #         param_to_compute=param_temp
+# #     param_to_compute=np.vstack((param_to_compute,param_temp))
+# #     for value,shift in enumerate(parameters):
+# #         to_shift=copy.copy(param_temp)
+# #         to_shift[value]+=shift
+# #         param_to_compute=np.vstack((param_to_compute,to_shift))
+# #         to_shift=copy.copy(param_temp)
+# #         to_shift[value]-=shift
+# #         if value==1:
+# #             if to_shift[value]<0.5:
+# #                 to_shift[value]=0.5
+# #         param_to_compute=np.vstack((param_to_compute,to_shift))
         
-#     for value,(shift_max,shift_min) in enumerate(zip(elem_max,elem_min),len(parameters)):
-#         to_shift=copy.copy(param_temp)
-#         to_shift[value]=shift_max
-#         param_to_compute=np.vstack((param_to_compute,to_shift))
-#         to_shift=copy.copy(param_temp)
-#         to_shift[value]=shift_min        
-#         param_to_compute=np.vstack((param_to_compute,to_shift))
-# fig, ax = plt.subplots(nrows=6, ncols=6,figsize=(16.0,9.0) )
-# x=4
-# for row in ax:
-#     for col in row:
-#         x+=1
-#         if x<36:
-#             # seaborn.kdeplot(param_to_compute[:,2],param_to_compute[:,x],ax=col)
-#             col.scatter(param_to_compute[:,2],param_to_compute[:,x],s=0.1,c='red')
-#             # col.set_xlabel('Fe/H')
-#             col.set_ylabel(elements[x-5]+'/fe')
-#             col.set_title(elements[x-5],y=0.7,x=0.1)
-#         else:
-#             col.set_axis_off()
-# plt.tight_layout()
-# fig.savefig('abundances distribution with limits')
-logg_low=1.0
-teff_low=4467
-logg_high=3.2
-teff_high=6000
-gradient_1=(logg_high-logg_low)/(teff_high-teff_low)
-zero_point_1=logg_high-teff_high*gradient_1
+# #     for value,(shift_max,shift_min) in enumerate(zip(elem_max,elem_min),len(parameters)):
+# #         to_shift=copy.copy(param_temp)
+# #         to_shift[value]=shift_max
+# #         param_to_compute=np.vstack((param_to_compute,to_shift))
+# #         to_shift=copy.copy(param_temp)
+# #         to_shift[value]=shift_min        
+# #         param_to_compute=np.vstack((param_to_compute,to_shift))
+# # fig, ax = plt.subplots(nrows=6, ncols=6,figsize=(16.0,9.0) )
+# # x=4
+# # for row in ax:
+# #     for col in row:
+# #         x+=1
+# #         if x<36:
+# #             # seaborn.kdeplot(param_to_compute[:,2],param_to_compute[:,x],ax=col)
+# #             col.scatter(param_to_compute[:,2],param_to_compute[:,x],s=0.1,c='red')
+# #             # col.set_xlabel('Fe/H')
+# #             col.set_ylabel(elements[x-5]+'/fe')
+# #             col.set_title(elements[x-5],y=0.7,x=0.1)
+# #         else:
+# #             col.set_axis_off()
+# # plt.tight_layout()
+# # fig.savefig('abundances distribution with limits')
+# logg_low=1.0
+# teff_low=4467
+# logg_high=3.2
+# teff_high=6000
+# gradient_1=(logg_high-logg_low)/(teff_high-teff_low)
+# zero_point_1=logg_high-teff_high*gradient_1
 
-logg_low=1.14
-logg_high=3.92
-teff_low=3574
-teff_high=4952
-gradient_2=(logg_high-logg_low)/(teff_high-teff_low)
-zero_point_2=logg_high-teff_high*gradient_2
-print('compiling_targets')
-param_to_compute=[]     
-while len(param_to_compute)<1.5e4:
-    for star in cross_data:
-        param_temp=[]
-        for names,lower,upper,spread in zip(parameters_names,hard_limits_low,hard_limits_high,parameters):
-            temp=-np.inf
-            if 'vmic_2'==names:
-                sigma=spread
-            else:
-                sigma=star['e_'+names]
-            mean=star[names]
+# logg_low=1.14
+# logg_high=3.92
+# teff_low=3574
+# teff_high=4952
+# gradient_2=(logg_high-logg_low)/(teff_high-teff_low)
+# zero_point_2=logg_high-teff_high*gradient_2
+# print('compiling_targets')
+# param_to_compute=[]     
+# while len(param_to_compute)<1.5e4:
+#     for star in cross_data:
+#         param_temp=[]
+#         for names,lower,upper,spread in zip(parameters_names,hard_limits_low,hard_limits_high,parameters):
+#             temp=-np.inf
+#             if 'vmic_2'==names:
+#                 sigma=spread
+#             else:
+#                 sigma=star['e_'+names]
+#             mean=star[names]
 
-            if np.isnan(mean):
-                mean=(upper+lower)/2
-            if np.isnan(sigma):
-                sigma=(upper-lower)/2
-            while temp<lower or temp>upper:
-                temp=np.random.normal(mean,sigma,1)
+#             if np.isnan(mean):
+#                 mean=(upper+lower)/2
+#             if np.isnan(sigma):
+#                 sigma=(upper-lower)/2
+#             while temp<lower or temp>upper:
+#                 temp=np.random.normal(mean,sigma,1)
     
-            param_temp.append(temp)
-        for names,lower,upper,mean_zero,spread_zero in zip(elements,elem_min,elem_max,elem_mean,elem_sig):
-            temp=-np.inf
-            while temp<lower or temp>upper:
-                if names=='N':
-                    mean=0.0
-                    sigma=0.5
-                else:
-                    mean=star[names+'_fe']
-                    sigma=star['e_'+names+'_fe']
-                if np.isnan(mean):
-                    mean=mean_zero
-                if mean<lower:
-                    mean=lower
-                elif mean>upper:
-                    mean=upper
-                if np.isnan(sigma):
-                    sigma=spread_zero
-                temp=-np.inf
-                while temp<lower or temp>upper:
-                    temp=np.random.normal(mean,sigma,1)
-            param_temp.append(temp)
-        while( (param_temp[0]>6000 and param_temp[1]<3.06) or
-              (param_temp[0]<6000 and param_temp[1]<3.06 and inside_area(param_temp[0],param_temp[1],gradient_1,zero_point_1))or
-                param_temp[0]<4952 and param_temp[1]<3.92 and inside_area(param_temp[0],param_temp[1],gradient_2,zero_point_2,upper=False)or
-                param_temp[1]>5.21 or param_temp[0]>8300 or 
-                (param_temp[0]>6500 and param_temp[1]>4.7) or
-                param_temp[0]>6000 or param_temp[0]<5000 or 
-                param_temp[1]<4.0 or param_temp[1]>5.0):
-            random_number=np.random.randint(0,len(cross_data))
-            star_temp=cross_data[random_number]
-            mean=star_temp['teff_2']
-            sigma=star_temp['e_teff_2']*4
+#             param_temp.append(temp)
+#         for names,lower,upper,mean_zero,spread_zero in zip(elements,elem_min,elem_max,elem_mean,elem_sig):
+#             temp=-np.inf
+#             while temp<lower or temp>upper:
+#                 if names=='N':
+#                     mean=0.0
+#                     sigma=0.5
+#                 else:
+#                     mean=star[names+'_fe']
+#                     sigma=star['e_'+names+'_fe']
+#                 if np.isnan(mean):
+#                     mean=mean_zero
+#                 if mean<lower:
+#                     mean=lower
+#                 elif mean>upper:
+#                     mean=upper
+#                 if np.isnan(sigma):
+#                     sigma=spread_zero
+#                 temp=-np.inf
+#                 while temp<lower or temp>upper:
+#                     temp=np.random.normal(mean,sigma,1)
+#             param_temp.append(temp)
+#         while( (param_temp[0]>6000 and param_temp[1]<3.06) or
+#               (param_temp[0]<6000 and param_temp[1]<3.06 and inside_area(param_temp[0],param_temp[1],gradient_1,zero_point_1))or
+#                 param_temp[0]<4952 and param_temp[1]<3.92 and inside_area(param_temp[0],param_temp[1],gradient_2,zero_point_2,upper=False)or
+#                 param_temp[1]>5.21 or param_temp[0]>8300 or 
+#                 (param_temp[0]>6500 and param_temp[1]>4.7) or
+#                 param_temp[0]>6000 or param_temp[0]<5000 or 
+#                 param_temp[1]<4.0 or param_temp[1]>5.0):
+#             random_number=np.random.randint(0,len(cross_data))
+#             star_temp=cross_data[random_number]
+#             mean=star_temp['teff_2']
+#             sigma=star_temp['e_teff_2']*4
             
-            if np.isnan(mean):
-                mean=-1000
-            if np.isnan(sigma):
-                sigma=0
+#             if np.isnan(mean):
+#                 mean=-1000
+#             if np.isnan(sigma):
+#                 sigma=0
 
-            param_temp[0]=np.random.normal(mean,sigma,1)
-            mean=star_temp['logg_2']
-            sigma=star_temp['e_logg_2']*4
-            if np.isnan(mean):
-                mean=-1000
-            if np.isnan(sigma):
-                sigma=0
-            param_temp[1]=np.random.normal(mean,sigma,1)
-            param_temp=np.hstack(param_temp)
-        # while param_temp[0]
-        if len (param_to_compute)==0:
+#             param_temp[0]=np.random.normal(mean,sigma,1)
+#             mean=star_temp['logg_2']
+#             sigma=star_temp['e_logg_2']*4
+#             if np.isnan(mean):
+#                 mean=-1000
+#             if np.isnan(sigma):
+#                 sigma=0
+#             param_temp[1]=np.random.normal(mean,sigma,1)
+#             param_temp=np.hstack(param_temp)
+#         # while param_temp[0]
+#         if len (param_to_compute)==0:
 
-            param_to_compute=np.hstack(param_temp)
-        param_to_compute=np.vstack((param_to_compute,np.hstack(param_temp)))
-param_to_compute=np.array(param_to_compute)
+#             param_to_compute=np.hstack(param_temp)
+#         param_to_compute=np.vstack((param_to_compute,np.hstack(param_temp)))
+# param_to_compute=np.array(param_to_compute)
 
-parameters_all_names=['teff','logg','monh','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-shift_all=[]
-for x in param_to_compute:
-      shift_temp={y:para for y,para in zip(parameters_all_names,x)}
-      shift_all.append(shift_temp)
+# parameters_all_names=['teff','logg','monh','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+# shift_all=[]
+# for x in param_to_compute:
+#       shift_temp={y:para for y,para in zip(parameters_all_names,x)}
+#       shift_all.append(shift_temp)
      
 
-def multi_synthetic(shift):
-    spectra=[]
-    spectras=spectrum_all(170517002801129,10)
-    while len(spectra)==0:
+# def multi_synthetic(shift):
+#     spectra=[]
+#     spectras=spectrum_all(170517002801129,10)
+#     while len(spectra)==0:
     
-        try:
-            pos_try=spectras.solar_value_maker(shift,colour='Blue')
-            spectra=spectras.synthesize(shift,give_back=True)
-        except:
-            print('failed',shift)
-            shift={}
-            random_number=np.random.randint(0,len(cross_data))
-            star=cross_data[random_number]
-            param_temp=[]
-            for names,lower,upper,spread in zip(parameters_names,hard_limits_low,hard_limits_high,parameters):
-                temp=-np.inf
-                if 'vmic_2'==names:
-                    sigma=spread
-                else:
-                    sigma=star['e_'+names]
-                mean=star[names]
+#         try:
+#             pos_try=spectras.solar_value_maker(shift,colour='Blue')
+#             spectra=spectras.synthesize(shift,give_back=True)
+#         except:
+#             print('failed',shift)
+#             shift={}
+#             random_number=np.random.randint(0,len(cross_data))
+#             star=cross_data[random_number]
+#             param_temp=[]
+#             for names,lower,upper,spread in zip(parameters_names,hard_limits_low,hard_limits_high,parameters):
+#                 temp=-np.inf
+#                 if 'vmic_2'==names:
+#                     sigma=spread
+#                 else:
+#                     sigma=star['e_'+names]
+#                 mean=star[names]
 
-                if np.isnan(mean):
-                    mean=(upper+lower)/2
-                if np.isnan(sigma):
-                    sigma=(upper-lower)/2
-                while temp<lower or temp>upper:
-                    temp=np.random.normal(mean,sigma,1)
+#                 if np.isnan(mean):
+#                     mean=(upper+lower)/2
+#                 if np.isnan(sigma):
+#                     sigma=(upper-lower)/2
+#                 while temp<lower or temp>upper:
+#                     temp=np.random.normal(mean,sigma,1)
         
-                param_temp.append(temp)
-            for names,lower,upper,mean_zero,spread_zero in zip(elements,elem_min,elem_max,elem_mean,elem_sig):
-                temp=-np.inf
-                while temp<lower or temp>upper:
-                    if names=='N':
-                        mean=0.0
-                        sigma=0.5
-                    else:
-                        mean=star[names+'_fe']
-                        sigma=star['e_'+names+'_fe']
-                    if np.isnan(mean):
-                        mean=mean_zero
-                    if mean<lower:
-                        mean=lower
-                    elif mean>upper:
-                        mean=upper
-                    if np.isnan(sigma):
-                        sigma=spread_zero
-                    temp=-np.inf
-                    while temp<lower or temp>upper:
-                        temp=np.random.normal(mean,sigma,1)
-                param_temp.append(temp)
-            while( (param_temp[0]>6000 and param_temp[1]<3.06) or
-                  (param_temp[0]<6000 and param_temp[1]<3.06 and inside_area(param_temp[0],param_temp[1],gradient_1,zero_point_1))or
-                   param_temp[0]<4952 and param_temp[1]<3.92 and inside_area(param_temp[0],param_temp[1],gradient_2,zero_point_2,upper=False)or
-                   param_temp[1]>5.21 or param_temp[0]>8300 or 
-                   (param_temp[0]>6500 and param_temp[1]>4.7) ):
-                random_number=np.random.randint(0,len(cross_data))
-                star_temp=cross_data[random_number]
-                mean=star_temp['teff_2']
-                sigma=star_temp['e_teff_2']*4
+#                 param_temp.append(temp)
+#             for names,lower,upper,mean_zero,spread_zero in zip(elements,elem_min,elem_max,elem_mean,elem_sig):
+#                 temp=-np.inf
+#                 while temp<lower or temp>upper:
+#                     if names=='N':
+#                         mean=0.0
+#                         sigma=0.5
+#                     else:
+#                         mean=star[names+'_fe']
+#                         sigma=star['e_'+names+'_fe']
+#                     if np.isnan(mean):
+#                         mean=mean_zero
+#                     if mean<lower:
+#                         mean=lower
+#                     elif mean>upper:
+#                         mean=upper
+#                     if np.isnan(sigma):
+#                         sigma=spread_zero
+#                     temp=-np.inf
+#                     while temp<lower or temp>upper:
+#                         temp=np.random.normal(mean,sigma,1)
+#                 param_temp.append(temp)
+#             while( (param_temp[0]>6000 and param_temp[1]<3.06) or
+#                   (param_temp[0]<6000 and param_temp[1]<3.06 and inside_area(param_temp[0],param_temp[1],gradient_1,zero_point_1))or
+#                    param_temp[0]<4952 and param_temp[1]<3.92 and inside_area(param_temp[0],param_temp[1],gradient_2,zero_point_2,upper=False)or
+#                    param_temp[1]>5.21 or param_temp[0]>8300 or 
+#                    (param_temp[0]>6500 and param_temp[1]>4.7) ):
+#                 random_number=np.random.randint(0,len(cross_data))
+#                 star_temp=cross_data[random_number]
+#                 mean=star_temp['teff_2']
+#                 sigma=star_temp['e_teff_2']*4
                 
-                if np.isnan(mean):
-                    mean=-1000
-                if np.isnan(sigma):
-                    sigma=0
+#                 if np.isnan(mean):
+#                     mean=-1000
+#                 if np.isnan(sigma):
+#                     sigma=0
 
-                param_temp[0]=np.random.normal(mean,sigma,1)
-                mean=star_temp['logg_2']
-                sigma=star_temp['e_logg_2']*4
-                if np.isnan(mean):
-                    mean=-1000
-                if np.isnan(sigma):
-                    sigma=0
-                param_temp[1]=np.random.normal(mean,sigma,1)
-                param_temp=np.hstack(param_temp)
-            shift={y:para for y,para in zip(parameters_all_names,param_temp)}
+#                 param_temp[0]=np.random.normal(mean,sigma,1)
+#                 mean=star_temp['logg_2']
+#                 sigma=star_temp['e_logg_2']*4
+#                 if np.isnan(mean):
+#                     mean=-1000
+#                 if np.isnan(sigma):
+#                     sigma=0
+#                 param_temp[1]=np.random.normal(mean,sigma,1)
+#                 param_temp=np.hstack(param_temp)
+#             shift={y:para for y,para in zip(parameters_all_names,param_temp)}
             
-            pos_try=spectras.solar_value_maker(shift,colour='Blue')
-            spectra=spectras.synthesize(shift,give_back=True)
+#             pos_try=spectras.solar_value_maker(shift,colour='Blue')
+#             spectra=spectras.synthesize(shift,give_back=True)
 
 
-    return spectra ,pos_try
-# multi_synthetic(7678157831)
-# # multi_synthetic({})
-# spectras.synthesize({})
-large_results=np.array([],dtype=object)
-steps=1
-# spectras.synthesize(large_shift[0])
-# spectras.synthesize(large_shift[0],give_back=True)
-# spec,pos1=multi_synthetic(large_shift[0])
-ncpu=2
-sythesizing_length=len(shift_all)
+#     return spectra ,pos_try
+# # multi_synthetic(7678157831)
+# # # multi_synthetic({})
+# # spectras.synthesize({})
+# large_results=np.array([],dtype=object)
+# steps=1
+# # spectras.synthesize(large_shift[0])
+# # spectras.synthesize(large_shift[0],give_back=True)
+# # spec,pos1=multi_synthetic(large_shift[0])
+# ncpu=2
+# sythesizing_length=len(shift_all)
 
-
-for x in range(int(sythesizing_length/ncpu/steps)):
-    pool=Pool(processes=ncpu)
-    results=pool.map(multi_synthetic,shift_all[x*ncpu*steps:(x+1)*ncpu*steps])
-    pool.close()
-    if len(large_results)==0:
-        large_results=np.array(results,dtype=object)
-    else:
-        large_results=np.vstack((large_results,results))
-    np.save('Training_data_small_Blue_2',large_results)
-    print('Saving at '+str((x+1)*ncpu*steps)+' iteration. It is '+ str((x+1)*ncpu*steps/sythesizing_length))
+# spectras.synthesize(shift_all[0])
+# for x in range(int(sythesizing_length/ncpu/steps)):
+#     pool=Pool(processes=ncpu)
+#     results=pool.map(multi_synthetic,shift_all[x*ncpu*steps:(x+1)*ncpu*steps])
+#     pool.close()
+#     if len(large_results)==0:
+#         large_results=np.array(results,dtype=object)
+#     else:
+#         large_results=np.vstack((large_results,results))
+#     np.save('Training_data_small_Blue_2',large_results)
+#     print('Saving at '+str((x+1)*ncpu*steps)+' iteration. It is '+ str((x+1)*ncpu*steps/sythesizing_length))
 
 
