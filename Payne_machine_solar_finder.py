@@ -258,10 +258,10 @@ def prior_2d(shift):
         total_int=0
         teff_prior=shift['teff']
         #applies the shift from spectroscopic temperature to photometric
-        polynomial_coeff=old_abundances['coeff']
-        spectroscopic_shift=np.poly1d(polynomial_coeff)
-        teff_prior+=spectroscopic_shift(teff_prior)
-        
+#        polynomial_coeff=old_abundances['coeff']
+#        spectroscopic_shift=np.poly1d(polynomial_coeff)
+#        teff_prior+=spectroscopic_shift(teff_prior)
+#        
         logg_prior=shift['logg']
         # teff_line=np.linspace(teff_prior-e_teff*10, teff_prior+e_teff*10,2)
         # logg_line=np.linspace(logg_prior-e_logg*10, logg_prior+e_logg*10,2)
@@ -287,9 +287,9 @@ def prior_2d(shift):
         #applied the shift from spectroscopic temperature to photometric
 
         # polynomial_coeff=fast_abundances[5]
-        spectroscopic_shift=np.poly1d(fast_coefficients)
+#        spectroscopic_shift=np.poly1d(fast_coefficients)
 
-        teff_prior+=spectroscopic_shift(teff_prior)
+#        teff_prior+=spectroscopic_shift(teff_prior)
 
         total_int=0
         for temp_param in prior_parameters:           
@@ -1640,6 +1640,7 @@ class spectrum_all:
         return np.array(grad_out_new,dtype=np.float64)
     
     def log_fit(self,colours=None,shift=None,dip_array=False,synthetic_spectra=None,normal=None,self_normal=False,solar_shift=None,uncertainty=None,limit_array=None,combine_masks=False):
+        uncertainty_value=0.0
         if colours==None:
             colours=self.bands
  
@@ -1662,28 +1663,37 @@ class spectrum_all:
            if np.array_equal(normal,None):
                for value,x in enumerate(colours):
                    if not(np.array_equal(synthetic_spectra,None)):
-                       probability[value]= -np.sum((synthetic_spectra[value]-rgetattr(self,x+'.spec'))**2/(2*(rgetattr(self,x+'.uncs'))**2)*limit_combine_array[value])
+                       #uncertainty will be uncs + synth*uncertainty_value
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(rgetattr(self,x+'.synth')*uncertainty_value)**2)
+                       probability[value]= -np.sum((synthetic_spectra[value]-rgetattr(self,x+'.spec'))**2/(2*(uncs_total)**2)*limit_combine_array[value])
                    else:
-                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-rgetattr(self,x+'.spec'))**2/(2*(rgetattr(self,x+'.uncs'))**2)*limit_combine_array[value])
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(rgetattr(self,x+'.synth')*uncertainty_value)**2)
+                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-rgetattr(self,x+'.spec'))**2/(2*(uncs_total)**2)*limit_combine_array[value])
            else:
                for value,x in enumerate(colours):
                    if not(np.array_equal(synthetic_spectra,None)):
-                       probability[value]= -np.sum((synthetic_spectra[value]-normal[value])**2/(2*(uncertainty[value])**2)*limit_combine_array[value])
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(synthetic_spectra[value]*uncertainty_value)**2)
+                       probability[value]= -np.sum((synthetic_spectra[value]-normal[value])**2/(2*(uncs_total)**2)*limit_combine_array[value])
                    else:
-                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-normal[value])**2/(2*(uncertainty[value])**2)*limit_combine_array[value])
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(rgetattr(self,x+'.synth')*uncertainty_value)**2)
+                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-normal[value])**2/(2*(uncs_total)**2)*limit_combine_array[value])
         else:
            if np.array_equal(normal,None):
                for value,x in enumerate(colours):
                    if not(np.array_equal(synthetic_spectra,None)):
-                       probability[value]= -np.sum((synthetic_spectra[value]-rgetattr(self,x+'.spec'))**2/(2*(rgetattr(self,x+'.uncs'))**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(synthetic_spectra[value]*uncertainty_value)**2)
+                       probability[value]= -np.sum((synthetic_spectra[value]-rgetattr(self,x+'.spec'))**2/(2*(uncs_total)**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
                    else:
-                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-rgetattr(self,x+'.spec'))**2/(2*(rgetattr(self,x+'.uncs'))**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(rgetattr(self,x+'.synth')*uncertainty_value)**2)
+                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-rgetattr(self,x+'.spec'))**2/(2*(uncs_total)**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
            else:
                for value,x in enumerate(colours):
                    if not(np.array_equal(synthetic_spectra,None)):
-                       probability[value]= -np.sum((synthetic_spectra[value]-normal[value])**2/(2*(rgetattr(self,x+'.uncs'))**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(synthetic_spectra[value]*uncertainty_value)**2)
+                       probability[value]= -np.sum((synthetic_spectra[value]-normal[value])**2/(2*(uncs_total)**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
                    else:
-                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-normal[value])**2/(2*(rgetattr(self,x+'.uncs'))**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
+                       uncs_total=np.sqrt(rgetattr(self,x+'.uncs')**2+(rgetattr(self,x+'.synth')*uncertainty_value)**2)
+                       probability[value]= -np.sum((rgetattr(self,x+'.synth')-normal[value])**2/(2*(uncs_total)**2)*limit_combine_array[value]*rgetattr(self,x+'.dip_array'))
         for value,x in enumerate(colours):
            if rgetattr(self,x+'.normal_value') is None:
                rsetattr(self, x+'.normal_value',probability[value]+1)
@@ -2086,6 +2096,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
         cluster_name='General'
+    elif cluster_name=="individual":
+   		votable = parse("all_cross_files/"+str(sobject_id_name)+"_photometric_cross.xml")
     else:
         votable = parse(cluster_name+"_photometric_cross.xml")
     global photometric_data
@@ -2094,13 +2106,13 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     
     name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    run_name='no_normalization_'
-    directory='_reduction/'+run_name
-    Path(cluster_name+'_reduction/').mkdir(parents=True,exist_ok=True)
+    run_name='no_normalization'
+    directory='_reduction_fixed_photometric/'+run_name
+    Path(cluster_name+'_reduction_fixed_photometric/').mkdir(parents=True,exist_ok=True)
     if prior:
-        filename = cluster_name+directory+'prior_'+str(name)
+        filename = cluster_name+directory+'_prior_'+str(name)
     else:
-        filename = cluster_name+directory+'no_prior_'+str(name)
+        filename = cluster_name+directory+'_no_prior_'+str(name)
     
     if not name in all_reduced_data['sobject_id']:
           print('hasnt been reduced ' + str(name))
@@ -2118,7 +2130,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if prior:
         global fast_abundances,fast_coefficients
         fast_abundances=np.vstack((np.ma.getdata(old_abundances['teff_raw']),np.ma.getdata(old_abundances['logg_raw']),np.ma.getdata(old_abundances['e_teff_raw']),np.ma.getdata(old_abundances['e_logg_raw'])))
-        fast_coefficients=np.ma.getdata(old_abundances['coeff'])
+       # fast_coefficients=np.ma.getdata(old_abundances['coeff'])
     colours=spectras.bands
     reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
     
@@ -2153,6 +2165,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
         radial_velocities.append(lin_vrad[logs.index(max(logs))])
     np.save(filename+'_radial_velocities',radial_velocities)
+    np.save(filename+'_bands_done',colours)
     spectras.mass_setter(shift_radial)
     spectras.synthesize()
     spectras.normalize()
@@ -2166,7 +2179,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     important_lines, important_molecules = load_dr3_lines()
         
     with Pool(processes=ncpu) as pool:
-        backend = emcee.backends.HDFBackend(filename+'_mask_finding_loop.h5')
+        mask_name_loop=f'{filename}_mask_finding_loop.h5'
+        backend = emcee.backends.HDFBackend(mask_name_loop)
         backend.reset(nwalkers, ndim)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_no_vrad,prior,parameters])
         
@@ -2174,7 +2188,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         autocorr=[]
         oldTau=np.inf
         print('doing first iteration for masks')
-        for sample in sampler.sample(pos_short,iterations=80, progress=True):
+        for sample in sampler.sample(pos_short,iterations=120, progress=True):
             if sampler.iteration % step_iteration:
                     continue
         shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
@@ -2192,15 +2206,13 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         for param in parameters_no_vrad:
             if param in elements:
                 solar_value_temp=spectras.solar_value_maker(shift_temp,keys=parameters_no_vrad)
-                median_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
-                shift_temp_2=copy.copy(shift_temp)
-                shift_temp_2[param]=x_min[param]
-                solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                low_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
-                shift_temp_2[param]=x_max[param]
-                solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                high_value=log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters)
-                change=max([median_value,low_value,high_value])-min([median_value,low_value,high_value])
+                abudance_probability=[]
+                for temp_abundance in np.linspace(x_min[param],x_max[param],10):
+                    shift_temp_2=copy.copy(shift_temp)
+                    shift_temp_2[param]=temp_abundance
+                    solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
+                    abudance_probability.append(log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters))
+                change=max(abudance_probability)-min(abudance_probability)
                 if change>70:
                     elem_good.append(param)
         parameters_main_loop=parameters_no_elements[:5]
@@ -2211,7 +2223,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         pos_long=starter_walkers_maker(len(parameters_main_loop)*2,old_abundances,parameters_main_loop,cluster=True)
         nwalkers=np.shape(pos_long)[0]
         ndim=np.shape(pos_long)[1]
-        
+        main_loop_name=f'{filename}_main_loop.h5'
         backend = emcee.backends.HDFBackend(filename+'_main_loop.h5')
         backend.reset(nwalkers, ndim)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
@@ -2220,15 +2232,15 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         autocorr=[]
         oldTau=np.ones(ndim)*np.inf
     
-        for sample in sampler.sample(pos_long,iterations=1200, progress=True):
+        for sample in sampler.sample(pos_long,iterations=1800, progress=True):
             if sampler.iteration % step_iteration:
                     continue
             tau=sampler.get_autocorr_time(tol=0)
             if not np.any(np.isnan(tau)):
                 autocorr.append(tau)
-                converged = np.all(tau[:5] * 10 < sampler.iteration)
+                converged = np.all(tau[:5] * 15 < sampler.iteration)
                 print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_main_loop[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
-                converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.15)
+                converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.10)
                 print(sampler.iteration/tau)
                 if converged and sampler.iteration>150:
                     break
@@ -2291,14 +2303,14 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
             important_lines=important_lines
         )
         
-        file_directory = cluster_name+'_reduction/plots/'
+        file_directory = cluster_name+'_reduction_fixed_photometric/plots/'
         Path(file_directory).mkdir(parents=True, exist_ok=True)
         if prior:
-            file_directory+= run_name+'prior_'
+            file_directory+= run_name+'_prior_'
         else:
-            file_directory += run_name+'no_prior_'
+            file_directory += run_name+'_no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
-# main_analysis(160106001601078,prior=True,ncpu=3,cluster_name="Melotte_22")
+# main_analysis(131217003901021,prior=True,ncpu=4,cluster_name="NGC_2682")
 # top# votable = parse("Ruprecht_147_photometric_cross.xml")
 # # global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
