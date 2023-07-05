@@ -12,6 +12,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1" 
 os.environ['OPENBLAS_NUM_THREADS']="1" 
 os.environ['VECLIB_MAXIMUM_THREADS']="1"
+os.environ['HDF5_USE_FILE_LOCKING']='False'
 from scipy.stats import kde
 from scipy import integrate
 
@@ -193,8 +194,8 @@ def log_posterior(solar_values,parameters,prior=False,full_parameters=None,inser
         if len(solar_values)!= len(parameters):
             print('youre missing parameters')
         
-        if not starting_test(solar_values,spectras.old_abundances,parameters,cluster=True):
-              return -np.inf
+        #if not starting_test(solar_values,spectras.old_abundances,parameters,cluster=True):
+        #      return -np.inf
         # print('passed')
         shift=shift_maker(solar_values,given_labels=parameters,all_labels=full_parameters)
         # shift['teff']=(shift['teff']+6000)*10
@@ -217,10 +218,15 @@ def log_posterior(solar_values,parameters,prior=False,full_parameters=None,inser
             combined_mask=[x*y for x,y in zip(normalized_masks,normalized_limit_array)]
         else:
             combined_mask=insert_mask
+        
         probability=spectras.log_fit(synthetic_spectra=synthetic_spectras,solar_shift=shift,normal=normalized_spectra,uncertainty=normalized_uncs,limit_array=combined_mask,combine_masks=False)
         # print(prior_2d(shift))
+        
         if prior:
-            probability+=prior_2d(shift)
+            prior_probability=prior_2d(shift)
+            probability+=prior_probability
+            return probability, prior_probability
+
         if probability>0:
             print('oh no prob ',probability)
             print(repr(solar_values))
@@ -247,10 +253,10 @@ def prior_2d(shift):
     """
     #Spread number defines if the sampling of the prior has been fine enough. if it has we use a sumation method(spread number is bellow 1) 
     #and if it hasnt we use a kde method (spread number above 1)
-    if spectras.spread_number>1:
+    if spectras.spread_number>0:
         #calculates the kde if hasnt been done
         if spectras.kde==None:
-            spectras.kde=kde.gaussian_kde([old_abundances['teff_raw'],old_abundances['logg_raw']])
+            spectras.kde=kde.gaussian_kde([old_abundances['teff_raw'],old_abundances['logg_raw']],weights=1/np.sqrt(old_abundances['e_teff_raw']*old_abundances['e_logg_raw']))
         photometric_probability_density=spectras.kde
         e_teff=spectras.e_teff_photometric
         e_logg=spectras.e_logg_photometric
@@ -298,11 +304,11 @@ def prior_2d(shift):
     #if the probability is zero it means that the asked parameters are too far away from the photometric temperatures. 
     #Thus we have to use a simple normal approximation
     if total_int==0:
+        print('using normal approximation')
         e_teff=spectras.e_teff_photometric
         e_logg=spectras.e_logg_photometric
         return np.log(1/(e_teff*e_logg*2*np.pi))-(1/2*((teff_prior-old_abundances['teff_photometric'])/e_teff)**2)-\
             (1/2*((logg_prior-old_abundances['logg_photometric'])/e_logg)**2)
-    
     return np.log(total_int)
             
             
@@ -2056,7 +2062,6 @@ def spread_masks(orginal_masks,spread=2):
 colours_dict={'Blue':0,'Red':1,'Green':2,'IR':3}
 labels=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']  
 
-open_cluster_sobject_id=np.loadtxt('target_sobject_id.txt',delimiter=',',dtype=str)
 
 cluster_name='Melotte_22'
 global large_data
@@ -2069,7 +2074,7 @@ global all_reduced_data
 all_reduced_data=fits.getdata('dr6.1.fits',1)
 all_reduced_data=Table(all_reduced_data)
 global x_min,x_max
-tmp = np.load("NN_normalized_spectra_all_elements_2_Blue.npz")   
+tmp = np.load("NN_normalized_spectra_all_elements_3_Blue.npz")   
 labels_with_limits=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 
 # votable = parse(cluster_name+"_cross_galah_light.xml")
@@ -2092,6 +2097,7 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
+test_parameters=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Y','Zr','Ba','Nd','Sm','Eu']
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
@@ -2106,7 +2112,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     
     name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    run_name='no_normalization'
+    run_name='_all_elements_long_run_'
     directory='_reduction_fixed_photometric/'+run_name
     Path(cluster_name+'_reduction_fixed_photometric/').mkdir(parents=True,exist_ok=True)
     if prior:
@@ -2169,7 +2175,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     spectras.mass_setter(shift_radial)
     spectras.synthesize()
     spectras.normalize()
-    pos_short=starter_walkers_maker(len(parameters_no_vrad)*2,old_abundances,parameters_no_vrad,cluster=True)
+    pos_short=starter_walkers_maker(len(test_parameters)*2,old_abundances,test_parameters,cluster=True)
     ndim=np.shape(pos_short)[1]
     nwalkers=np.shape(pos_short)[0]
     backend = emcee.backends.HDFBackend(filename)
@@ -2182,7 +2188,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         mask_name_loop=f'{filename}_mask_finding_loop.h5'
         backend = emcee.backends.HDFBackend(mask_name_loop)
         backend.reset(nwalkers, ndim)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_no_vrad,prior,parameters])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[test_parameters,prior,parameters])
         
         
         autocorr=[]
@@ -2191,7 +2197,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         for sample in sampler.sample(pos_short,iterations=120, progress=True):
             if sampler.iteration % step_iteration:
                     continue
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),parameters_no_vrad,False,parameters)   
+        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),test_parameters,False,parameters)   
         
         synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
         normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
@@ -2203,23 +2209,24 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         
         
         elem_good=[]
-        for param in parameters_no_vrad:
-            if param in elements:
-                solar_value_temp=spectras.solar_value_maker(shift_temp,keys=parameters_no_vrad)
-                abudance_probability=[]
-                for temp_abundance in np.linspace(x_min[param],x_max[param],10):
-                    shift_temp_2=copy.copy(shift_temp)
-                    shift_temp_2[param]=temp_abundance
-                    solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=parameters_no_vrad)
-                    abudance_probability.append(log_posterior(solar_value_temp, parameters=parameters_no_vrad,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters))
-                change=max(abudance_probability)-min(abudance_probability)
-                if change>70:
-                    elem_good.append(param)
-        parameters_main_loop=parameters_no_elements[:5]
-        parameters_main_loop=np.hstack((parameters_main_loop,elem_good))
+#        for param in test_parameters:
+#            if param in elements:
+#                solar_value_temp=spectras.solar_value_maker(shift_temp,keys=test_parameters)
+#                abudance_probability=[]
+#                for temp_abundance in np.linspace(x_min[param],x_max[param],10):
+#                    shift_temp_2=copy.copy(shift_temp)
+#                    shift_temp_2[param]=temp_abundance
+#                    solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=test_parameters)
+#                    abudance_probability.append(log_posterior(solar_value_temp, parameters=test_parameters,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters))
+#                change=max(abudance_probability)-min(abudance_probability)
+#                if change>70:
+#                    elem_good.append(param)
+#        parameters_main_loop=parameters_no_elements[:5]
+#        parameters_main_loop=np.hstack((parameters_main_loop,elem_good))
+        parameters_main_loop=test_parameters
         print('will be optimising ' + str(len(parameters_main_loop))+' parameters')
         print(parameters_main_loop)
-        np.save(filename+'_tags.npy',parameters_main_loop)
+        np.save(filename+'_tags.npy',test_parameters)
         pos_long=starter_walkers_maker(len(parameters_main_loop)*2,old_abundances,parameters_main_loop,cluster=True)
         nwalkers=np.shape(pos_long)[0]
         ndim=np.shape(pos_long)[1]
@@ -2232,15 +2239,15 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         autocorr=[]
         oldTau=np.ones(ndim)*np.inf
     
-        for sample in sampler.sample(pos_long,iterations=1800, progress=True):
+        for sample in sampler.sample(pos_long,iterations=360000, progress=True):
             if sampler.iteration % step_iteration:
                     continue
             tau=sampler.get_autocorr_time(tol=0)
             if not np.any(np.isnan(tau)):
                 autocorr.append(tau)
-                converged = np.all(tau[:5] * 15 < sampler.iteration)
+                converged = np.all(tau[:5] * 100 < sampler.iteration)
                 print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_main_loop[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
-                converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.10)
+                converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.01)
                 print(sampler.iteration/tau)
                 if converged and sampler.iteration>150:
                     break
@@ -2310,7 +2317,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         else:
             file_directory += run_name+'_no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
-# main_analysis(131217003901021,prior=True,ncpu=4,cluster_name="NGC_2682")
+#main_analysis(131217003901162,prior=True,ncpu=4,cluster_name="NGC_2682")
 # top# votable = parse("Ruprecht_147_photometric_cross.xml")
 # # global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
