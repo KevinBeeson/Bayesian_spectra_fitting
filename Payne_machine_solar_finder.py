@@ -704,7 +704,7 @@ class individual_spectrum:
             else:
                 starting_fraction=2085/4096
                 length_fraction=2/(4096*(1-starting_fraction))
-            tmp = np.load("NN_normalized_spectra_all_elements_3_"+x+".npz")
+            tmp = np.load("Required_files_for_fitting/NN_normalized_spectra_all_elements_3_"+x+".npz")
             w_array_0 = tmp["w_array_0"]
             w_array_1 = tmp["w_array_1"]
             w_array_2 = tmp["w_array_2"]
@@ -873,10 +873,10 @@ class individual_spectrum:
     
                 self.l_new=None
                 # Load spectrum masks
-                masks = Table.read('spectrum_mask_kevin.fits')
+                masks = Table.read('Required_files_for_fitting/spectrum_mask_kevin.fits')
                 masks_temp=vstack([x for x in masks if x['mask_begin']>self.wran[0]-200 and x['mask_end']<self.wran[1]+200])
                 self.masks=masks_temp
-                vital_lines = Table.read('vital_lines.fits')
+                vital_lines = Table.read('Required_files_for_fitting/vital_lines.fits')
                 vital_lines_temp=vstack([x for x in vital_lines if x['line_begin']>self.wran[0]-200 and x['line_end']<self.wran[1]+200])
                 self.vital_lines=vital_lines_temp
 
@@ -2022,7 +2022,7 @@ def plot_spectrum(wave,flux,flux_uncertainty,unmasked_region,title_text,comp1_te
     plt.tight_layout(h_pad=0)
     
     return f
-def load_dr3_lines(mode_dr3_path = 'important_lines'):
+def load_dr3_lines(mode_dr3_path = 'Required_files_for_fitting/important_lines'):
     """
     
     """
@@ -2138,7 +2138,7 @@ global all_reduced_data
 all_reduced_data=fits.getdata('dr6.1.fits',1)
 all_reduced_data=Table(all_reduced_data)
 global x_min,x_max
-tmp = np.load("NN_normalized_spectra_all_elements_3_Blue.npz")   
+tmp = np.load("Required_files_for_fitting/NN_normalized_spectra_all_elements_3_Blue.npz")   
 labels_with_limits=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 
 # votable = parse(cluster_name+"_cross_galah_light.xml")
