@@ -15,7 +15,9 @@ os.environ['VECLIB_MAXIMUM_THREADS']="1"
 os.environ['HDF5_USE_FILE_LOCKING']='False'
 from scipy.stats import kde
 from scipy import integrate
-
+import celerite
+from celerite import terms
+from scipy.optimize import minimize
 from numba import jit
 import time
 from functools import  partial
@@ -225,7 +227,7 @@ def log_posterior(solar_values,parameters,prior=False,full_parameters=None,inser
         if prior:
             prior_probability=prior_2d(shift)
             probability+=prior_probability
-            return probability, prior_probability
+            return probability , prior_probability
 
         if probability>0:
             print('oh no prob ',probability)
@@ -304,7 +306,7 @@ def prior_2d(shift):
     #if the probability is zero it means that the asked parameters are too far away from the photometric temperatures. 
     #Thus we have to use a simple normal approximation
     if total_int==0:
-        print('using normal approximation')
+        #print('using normal approximation')
         e_teff=spectras.e_teff_photometric
         e_logg=spectras.e_logg_photometric
         return np.log(1/(e_teff*e_logg*2*np.pi))-(1/2*((teff_prior-old_abundances['teff_photometric'])/e_teff)**2)-\
@@ -2058,7 +2060,69 @@ def spread_masks(orginal_masks,spread=2):
             for x in range(max(0,value-spread),min(len_of_masks,value+spread)):
                 masks_temp[x]=0
     return masks_temp
+def autocorr_ml(y, tau_emcee=1, c=5.0):
+    # Compute the initial estimate of tau using the standard method
+    init = emcee.autocorr.integrated_time(y.T,tol=0)
+    thin=max(1,int(tau_emcee*0.05))
+    z = y[:, ::thin]
+    z /= np.mean(z)
+    N = z.shape[1]
 
+    # Build the GP model
+    tau = max(1.0, init / thin)
+    kernel = terms.RealTerm(
+        np.log(0.9 * np.mean(np.var(z,axis=1))),
+        -np.log(tau),
+    )
+    kernel += terms.RealTerm(
+        np.log(0.1 * np.mean(np.var(z,axis=1))),
+        -np.log(0.5 * tau),
+    )
+
+    gp = celerite.GP(kernel, mean=np.mean(z))
+    gp.compute(np.arange(z.shape[1]))
+
+    # Define the objective
+    def nll(p):
+        # Update the GP model
+        gp.set_parameter_vector(p)
+
+        # Loop over the chains and compute likelihoods
+        v, g = zip(*(gp.grad_log_likelihood(z0, quiet=True) for z0 in z))
+
+        # Combine the datasets
+        return -np.sum(v), -np.sum(g, axis=0)
+
+    # Optimize the model
+    p0 = gp.get_parameter_vector()
+    bounds = gp.get_parameter_bounds()
+    soln = minimize(nll, p0, jac=True, bounds=bounds)
+    gp.set_parameter_vector(soln.x)
+
+    # Compute the maximum likelihood tau
+    a, c = kernel.coefficients[:2]
+    tau = thin * 2 * np.sum(a / c) / np.sum(a)
+    return tau
+def burn_in_test(data_to_fit,m_limit=1e-3):
+    """
+    this function test if the data is already burned in by checking the gradient of the data in 1D fit
+    INPUT:
+    data_to_fit: the data to be tested 1D array
+    m_limit: the limit of the gradient FLOAT
+    OUTPUT:
+    True if the gradient is smaller than the limit
+    False if the gradient is larger than the limit
+
+    """
+    #to make the gradiesnt comparable divide by mean
+    data_to_fit=data_to_fit/np.mean(data_to_fit)
+    x=np.arange(len(data_to_fit))
+    m,b=np.polyfit(x,data_to_fit,1)
+
+    if abs(m) < abs(m_limit):
+        return True
+    else:
+        return False
 colours_dict={'Blue':0,'Red':1,'Green':2,'IR':3}
 labels=['teff','logg','fe_h','fe_h','alpha','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','vsini','vmac','vmic']  
 
@@ -2097,35 +2161,37 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-test_parameters=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Y','Zr','Ba','Nd','Sm','Eu']
+test_parameters=['teff','logg']
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
+    prior=True
+    cluster_name='NGC_2682'
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
         cluster_name='General'
     elif cluster_name=="individual":
-   		votable = parse("all_cross_files/"+str(sobject_id_name)+"_photometric_cross.xml")
+        votable = parse("all_cross_files/"+str(sobject_id_name)+"_photometric_cross.xml")
     else:
         votable = parse(cluster_name+"_photometric_cross.xml")
     global photometric_data
     photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
 
-    
+
     name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    run_name='_all_elements_long_run_'
+    run_name='to_test_burn_in_'
     directory='_reduction_fixed_photometric/'+run_name
     Path(cluster_name+'_reduction_fixed_photometric/').mkdir(parents=True,exist_ok=True)
     if prior:
         filename = cluster_name+directory+'_prior_'+str(name)
     else:
         filename = cluster_name+directory+'_no_prior_'+str(name)
-    
+
     if not name in all_reduced_data['sobject_id']:
-          print('hasnt been reduced ' + str(name))
-          return 
+            print('hasnt been reduced ' + str(name))
+            return 
     if os.path.exists(filename+'_mask_finding_loop.h5') and os.path.exists(filename+'_main_loop.h5'):
-          print('already done '+ str(name))
-          return
+            print('already done '+ str(name))
+            return
     global spectras
     spectras=spectrum_all(name,cluster=True)
     spectras.synthesize()
@@ -2136,13 +2202,13 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     if prior:
         global fast_abundances,fast_coefficients
         fast_abundances=np.vstack((np.ma.getdata(old_abundances['teff_raw']),np.ma.getdata(old_abundances['logg_raw']),np.ma.getdata(old_abundances['e_teff_raw']),np.ma.getdata(old_abundances['e_logg_raw'])))
-       # fast_coefficients=np.ma.getdata(old_abundances['coeff'])
+        # fast_coefficients=np.ma.getdata(old_abundances['coeff'])
     colours=spectras.bands
     reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
-    
+
     if reduction_status:
-          print('reduction failed will skip'+str(name)+ 'for now')
-          return
+            print('reduction failed will skip'+str(name)+ 'for now')
+            return
     shift_radial={}
     print('calculating radial velocities')
     radial_velocities=[]
@@ -2156,7 +2222,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
             mean=np.nanmean(photometric_data['red_rv_com'])
         if not (np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_e_rv_ccd'][colours_dict[col]])):
             sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
-    
+
         elif not (np.isnan(old_abundances['red_e_rv_com']) or np.ma.is_masked(old_abundances['red_e_rv_com'])) :
             sig=float(old_abundances['red_e_rv_com'])*3
         else:
@@ -2180,10 +2246,9 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     nwalkers=np.shape(pos_short)[0]
     backend = emcee.backends.HDFBackend(filename)
     backend.reset(nwalkers, ndim)
-    
-    step_iteration=20
+
+    step_iteration=100
     important_lines, important_molecules = load_dr3_lines()
-        
     with Pool(processes=ncpu) as pool:
         mask_name_loop=f'{filename}_mask_finding_loop.h5'
         backend = emcee.backends.HDFBackend(mask_name_loop)
@@ -2194,10 +2259,32 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         autocorr=[]
         oldTau=np.inf
         print('doing first iteration for masks')
-        for sample in sampler.sample(pos_short,iterations=120, progress=True):
-            if sampler.iteration % step_iteration:
+        burnt_in_steps=40
+        #make a ndim x nwalkers array of False values for progress
+        burn_in_progress=np.zeros((ndim,nwalkers),dtype=bool)
+        burn_in=True
+        burn_in_finished=0
+        for sample in sampler.sample(pos_short,iterations=100+10*nwalkers, progress=True):
+            #test if parameters have been burn in yet
+
+            if not( sampler.iteration % burnt_in_steps) and burn_in and sampler.iteration>0:
+                    current_data=sampler.get_chain()[sampler.iteration-burnt_in_steps:sampler.iteration,:,:]
+
+                    for value, parameter_data in enumerate(current_data.T):
+                        temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
+                        burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
+                        
+                    print(f'burn in progress has finished for {np.sum(burn_in_progress)} out of {np.prod(np.shape(burn_in_progress))} walkers * number of dimentions')
+                    if np.all(burn_in_progress):
+                        print('burn in complete')
+                        burn_in=False
+                        burn_in_finished=sampler.iteration
+                        
                     continue
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(20,sampler.iteration//2)),axis=0),test_parameters,False,parameters)   
+            if not burn_in and sampler.iteration>burn_in_finished+50:
+                break
+            
+        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(sampler.iteration-burnt_in_steps,burn_in_finished)),axis=0),test_parameters,False,parameters)   
         
         synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
         normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
@@ -2209,20 +2296,20 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         
         
         elem_good=[]
-#        for param in test_parameters:
-#            if param in elements:
-#                solar_value_temp=spectras.solar_value_maker(shift_temp,keys=test_parameters)
-#                abudance_probability=[]
-#                for temp_abundance in np.linspace(x_min[param],x_max[param],10):
-#                    shift_temp_2=copy.copy(shift_temp)
-#                    shift_temp_2[param]=temp_abundance
-#                    solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=test_parameters)
-#                    abudance_probability.append(log_posterior(solar_value_temp, parameters=test_parameters,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters))
-#                change=max(abudance_probability)-min(abudance_probability)
-#                if change>70:
-#                    elem_good.append(param)
-#        parameters_main_loop=parameters_no_elements[:5]
-#        parameters_main_loop=np.hstack((parameters_main_loop,elem_good))
+    #        for param in test_parameters:
+    #            if param in elements:
+    #                solar_value_temp=spectras.solar_value_maker(shift_temp,keys=test_parameters)
+    #                abudance_probability=[]
+    #                for temp_abundance in np.linspace(x_min[param],x_max[param],10):
+    #                    shift_temp_2=copy.copy(shift_temp)
+    #                    shift_temp_2[param]=temp_abundance
+    #                    solar_value_temp=spectras.solar_value_maker(shift_temp_2,keys=test_parameters)
+    #                    abudance_probability.append(log_posterior(solar_value_temp, parameters=test_parameters,prior=prior,insert_mask=normalized_limit_array,full_parameters=parameters))
+    #                change=max(abudance_probability)-min(abudance_probability)
+    #                if change>70:
+    #                    elem_good.append(param)
+    #        parameters_main_loop=parameters_no_elements[:5]
+    #        parameters_main_loop=np.hstack((parameters_main_loop,elem_good))
         parameters_main_loop=test_parameters
         print('will be optimising ' + str(len(parameters_main_loop))+' parameters')
         print(parameters_main_loop)
@@ -2238,20 +2325,46 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         
         autocorr=[]
         oldTau=np.ones(ndim)*np.inf
-    
-        for sample in sampler.sample(pos_long,iterations=360000, progress=True):
-            if sampler.iteration % step_iteration:
+        indipendent_samples=1000
+        print(f'Doing the main fitting loop to get {indipendent_samples} indipendent samples')
+        
+        burn_in=True
+        burn_in_finished=0
+        max_iteration=360000
+        estimated_final_iteration=max_iteration
+        mean_tau_autocorr=[]
+        for sample in sampler.sample(pos_long,iterations=max_iteration, progress=True):
+            if not( sampler.iteration % burnt_in_steps) and burn_in and sampler.iteration>0:
+                    current_data=sampler.get_chain()[sampler.iteration-burnt_in_steps:sampler.iteration,:,:]
+
+                    for value, parameter_data in enumerate(current_data.T):
+                        temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
+                        burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
+                    print(f'burn in progress has finished for {np.sum(burn_in_progress)} out of {np.prod(np.shape(burn_in_progress))} walkers')
+                    if np.all(burn_in_progress):
+                        print('burn in complete')
+                        burn_in=False
+                        burn_in_finished=sampler.iteration
+                        
                     continue
-            tau=sampler.get_autocorr_time(tol=0)
-            if not np.any(np.isnan(tau)):
-                autocorr.append(tau)
-                converged = np.all(tau[:5] * 100 < sampler.iteration)
-                print('worst converging dimention is', np.min(sampler.iteration/tau), parameters_main_loop[np.where(sampler.iteration/tau==np.min(sampler.iteration/tau))[0][0]])
-                converged &= np.all(np.abs(oldTau[:5] - tau[:5]) / tau[:5] < 0.01)
-                print(sampler.iteration/tau)
-                if converged and sampler.iteration>150:
-                    break
-                oldTau = tau
+            elif not(burn_in) and not((sampler.iteration-burn_in_finished) % step_iteration) and sampler.iteration>=burn_in_finished+step_iteration:
+                tau_emcee=sampler.get_autocorr_time(discard=burn_in_finished,tol=0)
+                data_to_test=sampler.get_chain(discard=burn_in_finished)
+                tau_autocorr=[]
+                for value,parameter_data in enumerate(data_to_test.T):
+                    tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
+                mean_tau_autocorr.append(tau_autocorr)
+                #estimate in how many iteration we will get to the required indipendent samples
+                estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
+                step_iteration=estimated_final_iteration//10
+                print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {sampler.iteration+step_iteration}',)
+                
+            
+            if not(burn_in) and sampler.iteration>estimated_final_iteration+burn_in_finished:
+                #save the autocorrelation time
+                np.save(filename+'_autocorr.npy',np.mean(mean_tau_autocorr,axis=1))
+                break
+
         unmasked_opt=[]
         normalized_limit_array=np.hstack(normalized_limit_array)
         for x in normalized_limit_array:
@@ -2317,7 +2430,13 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         else:
             file_directory += run_name+'_no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
-#main_analysis(131217003901162,prior=True,ncpu=4,cluster_name="NGC_2682")
+
+#main_analysis(140209002701392,prior=True,ncpu=4,cluster_name="NGC_2682")
+#get target from target_list.txt
+target_list=np.loadtxt('target_list.txt',dtype=int)
+for target in target_list:
+    main_analysis(target,prior=True,ncpu=32,cluster_name="NGC_2682")
+
 # top# votable = parse("Ruprecht_147_photometric_cross.xml")
 # # global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
