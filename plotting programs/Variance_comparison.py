@@ -28,7 +28,7 @@ for x in parameters_index:
         parameters_new.append(x)
 parameters_index=parameters_new
 
-endings=['_prior','_Galah_iDR4']
+endings=['_prior','_no_prior']
 numbers_all=[]
 all_ratios=[]
 potassium_check=[]

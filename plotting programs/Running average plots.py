@@ -364,11 +364,11 @@ for x in parameters_index:
 parameters_index=parameters_new
 cluster_1='NGC_2682'
 cluster_2='NGC_2682'
-file_name_1=cluster_1+'_no_normalization_.xml'
-file_name_2=cluster_2+'_no_normalization_.xml'
+file_name_1=cluster_1+'_no_normalization_error_fixed.xml'
+file_name_2=cluster_2+'_no_normalization_error_fixed.xml'
 circle_size=0.3
-colours=['red','green']
-endings=['_prior','_Galah_iDR4']
+colours=['blue','red']
+endings=['_no_prior','_prior']
 converged=True
 size_font=10
 for name in ['NGC_2682']:
@@ -387,8 +387,8 @@ for name in ['NGC_2682']:
         for col in range(shape[1]):
             ax.append(plt.subplot2grid(shape=shape,loc=(row,col)))
     cluster_1=cluster_2=name
-    file_name_1=cluster_1+'_no_normalization_with_new_sven.xml'
-    file_name_2=cluster_2+'_no_normalization_with_new_sven.xml'
+    file_name_1=cluster_1+'_no_normalization_fixed_errors.xml'
+    file_name_2=cluster_2+'_no_normalization_fixed_errors.xml'
     votable = parse(file_name_1)
     data_1=votable.get_first_table().to_table(use_names_over_ids=True)
     votable = parse(file_name_2)
@@ -406,22 +406,10 @@ for name in ['NGC_2682']:
         # data_2=data_2[mask]
         
         for elem in ['fe_h']:
-            print(elem)
-            mask=data_1[elem+'_prior']<np.nanpercentile(np.array(data_1[elem+'_prior']),99)
-            mask*=data_1[elem+'_prior']>np.nanpercentile(np.array(data_1[elem+'_prior']),1)
-            #if data is masked then 
-            masked=[np.ma.is_masked(x) for x in data_1[elem+'_prior']]
-            mask=np.logical_or(mask,masked)
-            mask*=data_2[elem+'_no_prior']<np.nanpercentile(np.array(data_2[elem+'_no_prior']),99)
-            mask*=data_2[elem+'_no_prior']>np.nanpercentile(np.array(data_2[elem+'_no_prior']),1)
-            
-            masked=[np.ma.is_masked(x) for x in data_2[elem+'_no_prior']]
-            mask=np.logical_or(mask,masked)
 
+            mask=data_1['e_fe_h_prior']<0.015
             data_1=data_1[mask]
             data_2=data_2[mask]
-            print(len(data_1))
-
     #if one of the endings is 'Galah_iDR4' then we need to use the spectroscopic values and the other endings
    #create bins here for both endings
     for data,colour,ending,cluster_name in zip([data_1,data_2],colours,endings,[cluster_1,cluster_2]):
@@ -453,7 +441,7 @@ for name in ['NGC_2682']:
                 ax1.scatter(data['teff'],data['logg'],s=circle_size,c=colour,linewidths=0)
             else:
                 teff,logg=converged_data('teff'+ending,'logg'+ending)
-                ax1.scatter(teff,logg,s=0.3,c=colour,linewidths=0)
+                ax1.scatter(teff,logg,s=0.5,c=colour,linewidths=0)
             ax1.set_xlabel(r'$T_{\rm{eff}}$')
             ax1.xaxis.set_label_position('top') 
             ax1.tick_params('x', top=True, labeltop=True,bottom=False,labelbottom=False)
@@ -513,11 +501,17 @@ for name in ['NGC_2682']:
                     data_temp_1=data_1[mask] 
                     mask=data_2[col_dat+endings[1]]>-10
                     data_temp_2=data_2[mask]
-                    if len(data_temp_1)==0:
-                        bins=np.linspace(min(data_temp_2))
-                    else:    
+                    if len(data_temp_1)!=0 and len(data_temp_2)!=0:
                         bins=np.linspace(min(min(data_temp_1['logg'+endings[0]]),min(data_temp_2['logg'+endings[1]]))-0.1,max(max(data_temp_1['logg'+endings[0]]),max(data_temp_2['logg'+endings[1]]))+0.1,10)
                 
+                    elif len(data_temp_2)!=0:
+                        bins=np.linspace(min(data_temp_2['logg'+endings[1]])-0.1,max(data_temp_2['logg'+endings[1]])+0.1,10)
+                    elif len(data_temp_1)!=0:
+                        bins=np.linspace(min(data_temp_1['logg'+endings[0]])-0.1,max(data_temp_1['logg'+endings[0]])+0.1,10)
+                    else:
+                        bins=np.linspace(5,1,10)
+                      
+                        
                 if ending=="_Galah_iDR4":
                     axis.scatter(data['logg'],data[col_dat.lower()+'_sven'],s=circle_size,c=colour,alpha=0.3,linewidths=0)
                 else:
@@ -553,12 +547,12 @@ for name in ['NGC_2682']:
         for value,axis in enumerate(ax[4:]):
             if value%shape[1]==0:
                 axis.text(-0.45,0.5,r'[x/Fe]' ,horizontalalignment='center',verticalalignment='center', transform=axis.transAxes,rotation=90)
-        red_patch = mpatches.Patch(color='red', label=(cluster_1+endings[0]).replace("_", " "))
-        blue_patch = mpatches.Patch(color='blue', label=(cluster_2+endings[1]).replace("_", " "))
-        # fig.legend(handles=[red_patch,blue_patch],loc=(0.71,0.905))
+    red_patch = mpatches.Patch(color=colours[0], label=(cluster_1+endings[0]).replace("_", " "))
+    blue_patch = mpatches.Patch(color=colours[1], label=(cluster_2+endings[1]).replace("_", " "))
+    fig.legend(handles=[red_patch,blue_patch],loc=(0.46,0.955),borderaxespad=0,ncol=2)
     for axis in ax:
         axis.set_xlim(axis.get_xlim()[::-1])
     fig.set_size_inches(6.97384806974,6)
     plt.tight_layout(w_pad=0.0,h_pad=-1.5)
     #plt.savefig('test_2.pdf')
-    plt.savefig('/home/kevin/Documents/Paper/new/'+cluster_1+endings[0]+'_'+cluster_2+endings[1]+'_masks_'+str(converged)+'_running_average_logg.pdf',bbox_inches='tight')
+    plt.savefig('/home/kevin/Documents/Paper/new/'+cluster_1+endings[0]+'_'+cluster_2+endings[1]+'_masks_'+str(converged)+'_running_average_logg_mask2.pdf',bbox_inches='tight')

@@ -6,6 +6,14 @@ Created on Thu Dec  8 11:28:41 2022
 @author: kevin
 """
 
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Dec  8 11:28:41 2022
+
+@author: kevin
+"""
+
 
 
 from functools import  partial
@@ -28,7 +36,44 @@ plt.rcParams['ytick.direction']='in'
 plt.rcParams['text.usetex'] = True
 # import Galah_tool_py3 as gtools
 # import random
-svens_reduced_data=fits.getdata('galah_dr4_allspec_220713.fits',1)
+svens_reduced_data=fits.getdata('galah_dr4_allspec_230517.fits',1)
+svens_reduced_data=Table(svens_reduced_data)
+
+all_reduced_data=fits.getdata('dr6.1.fits',1)
+all_reduced_data=Table(all_reduced_data)
+mask=all_reduced_data['gaia_id']!='None'
+all_reduced_data=all_reduced_data[mask]
+all_reduced_data['gaia_id']=all_reduced_data['gaia_id'].astype(np.int64)
+
+all_reduced_data_old=fits.getdata('dr6.0.fits',1)
+all_reduced_data_old=Table(all_reduced_data_old)
+mask=all_reduced_data_old['gaia_id']!='None'
+all_reduced_data_old=all_reduced_data_old[mask]
+all_reduced_data_old['gaia_id']=all_reduced_data_old['gaia_id'].astype(np.int64)
+
+
+
+from functools import  partial
+from astropy.io.votable import parse
+from astropy.io.votable import parse,from_table,writeto
+
+# from The_Payne import spectral_model
+
+from pathlib import Path
+
+from astropy.table import Table,vstack,join
+import matplotlib.pyplot as plt
+%matplotlib ipympl
+import numpy as np
+import csv
+from astropy.io import fits
+plt.rcParams['font.family']='Times New Roman'
+plt.rcParams['xtick.direction']='in'
+plt.rcParams['ytick.direction']='in'
+plt.rcParams['text.usetex'] = True
+# import Galah_tool_py3 as gtools
+# import random
+svens_reduced_data=fits.getdata('galah_dr4_allspec_230517.fits',1)
 svens_reduced_data=Table(svens_reduced_data)
 
 all_reduced_data=fits.getdata('dr6.1.fits',1)
