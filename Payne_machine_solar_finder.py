@@ -14,6 +14,7 @@ os.environ['OPENBLAS_NUM_THREADS']="1"
 os.environ['VECLIB_MAXIMUM_THREADS']="1"
 os.environ['HDF5_USE_FILE_LOCKING']='False'
 from scipy.stats import kde
+from astropy.table import QTable
 from scipy import integrate
 import celerite
 from celerite import terms
@@ -1830,6 +1831,7 @@ class spectrum_all:
             plt.title(x+" Band")
             plt.xlim([x_shifted[0],x_shifted[-1]])
             plt.tight_layout()
+            plt.show()
 def chebyshev(p,ye,mask):
     coef=np.polynomial.chebyshev.chebfit(p[0][mask], p[1][mask], 4)
     cont=np.polynomial.chebyshev.chebval(p[0],coef)
@@ -2162,9 +2164,8 @@ parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Gr
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 test_parameters=['teff','logg']
-def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
-    prior=True
-    cluster_name='NGC_2682'
+def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
+
     if cluster_name==None:
         votable = parse("open_cluster_photometric_cross.xml")
         cluster_name='General'
@@ -2178,7 +2179,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
 
     name=sobject_id_name
     # name=photometric_data[0]['sobject_id']
-    run_name='to_test_burn_in_'
+    run_name='good_sampling_'
     directory='_reduction_fixed_photometric/'+run_name
     Path(cluster_name+'_reduction_fixed_photometric/').mkdir(parents=True,exist_ok=True)
     if prior:
@@ -2186,12 +2187,14 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     else:
         filename = cluster_name+directory+'_no_prior_'+str(name)
 
-    if not name in all_reduced_data['sobject_id']:
-            print('hasnt been reduced ' + str(name))
-            return 
-    if os.path.exists(filename+'_mask_finding_loop.h5') and os.path.exists(filename+'_main_loop.h5'):
-            print('already done '+ str(name))
-            return
+    # if not name in all_reduced_data['sobject_id']:
+    #         print('hasnt been reduced ' + str(name))
+    #         return 
+    # if skip:
+    #     if os.path.exists(filename+'_mask_finding_loop.h5') and os.path.exists(filename+'_main_loop.h5'):
+    #             print(filename+'_main_loop.h5')
+    #             print('already done '+ str(name))
+    #             return
     global spectras
     spectras=spectrum_all(name,cluster=True)
     spectras.synthesize()
@@ -2206,9 +2209,9 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     colours=spectras.bands
     reduction_status=np.any([rgetattr(spectras,x+'.bad_reduction') for x in colours ])or spectras.hermes_checker()
 
-    if reduction_status:
-            print('reduction failed will skip'+str(name)+ 'for now')
-            return
+    # if reduction_status:
+    #         print('reduction failed will skip'+str(name)+ 'for now')
+    #         return
     shift_radial={}
     print('calculating radial velocities')
     radial_velocities=[]
@@ -2247,7 +2250,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
     backend = emcee.backends.HDFBackend(filename)
     backend.reset(nwalkers, ndim)
 
-    step_iteration=100
+
     important_lines, important_molecules = load_dr3_lines()
     with Pool(processes=ncpu) as pool:
         mask_name_loop=f'{filename}_mask_finding_loop.h5'
@@ -2259,16 +2262,16 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         autocorr=[]
         oldTau=np.inf
         print('doing first iteration for masks')
-        burnt_in_steps=40
+        burn_in_steps=40
         #make a ndim x nwalkers array of False values for progress
-        burn_in_progress=np.zeros((ndim,nwalkers),dtype=bool)
+        burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
         burn_in=True
         burn_in_finished=0
         for sample in sampler.sample(pos_short,iterations=100+10*nwalkers, progress=True):
             #test if parameters have been burn in yet
 
-            if not( sampler.iteration % burnt_in_steps) and burn_in and sampler.iteration>0:
-                    current_data=sampler.get_chain()[sampler.iteration-burnt_in_steps:sampler.iteration,:,:]
+            if not( sampler.iteration % burn_in_steps) and burn_in and sampler.iteration>0:
+                    current_data=sampler.get_chain()[sampler.iteration-burn_in_steps:sampler.iteration,:,:5]
 
                     for value, parameter_data in enumerate(current_data.T):
                         temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
@@ -2276,7 +2279,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
                         
                     print(f'burn in progress has finished for {np.sum(burn_in_progress)} out of {np.prod(np.shape(burn_in_progress))} walkers * number of dimentions')
                     if np.all(burn_in_progress):
-                        print('burn in complete')
+                        print(f'burn in complete will sample until {sampler.iteration+50}')
                         burn_in=False
                         burn_in_finished=sampler.iteration
                         
@@ -2284,7 +2287,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
             if not burn_in and sampler.iteration>burn_in_finished+50:
                 break
             
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(sampler.iteration-burnt_in_steps,burn_in_finished)),axis=0),test_parameters,False,parameters)   
+        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=min(sampler.iteration-burn_in_steps,burn_in_finished)),axis=0),test_parameters,False,parameters)   
         
         synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
         normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
@@ -2322,33 +2325,33 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
         backend.reset(nwalkers, ndim)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
         
-        
+        step_iteration=100
         autocorr=[]
         oldTau=np.ones(ndim)*np.inf
-        indipendent_samples=1000
+        indipendent_samples=200
         print(f'Doing the main fitting loop to get {indipendent_samples} indipendent samples')
-        
+        burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
         burn_in=True
         burn_in_finished=0
-        max_iteration=360000
+        max_iteration=100000
         estimated_final_iteration=max_iteration
         mean_tau_autocorr=[]
         for sample in sampler.sample(pos_long,iterations=max_iteration, progress=True):
-            if not( sampler.iteration % burnt_in_steps) and burn_in and sampler.iteration>0:
-                    current_data=sampler.get_chain()[sampler.iteration-burnt_in_steps:sampler.iteration,:,:]
+            if not( sampler.iteration % burn_in_steps) and burn_in and sampler.iteration>0:
+                    current_data=sampler.get_chain()[sampler.iteration-burn_in_steps:sampler.iteration,:,:5]
 
                     for value, parameter_data in enumerate(current_data.T):
                         temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
                         burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
                     print(f'burn in progress has finished for {np.sum(burn_in_progress)} out of {np.prod(np.shape(burn_in_progress))} walkers')
-                    if np.all(burn_in_progress):
+                    if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
                         print('burn in complete')
                         burn_in=False
                         burn_in_finished=sampler.iteration
                         
                     continue
-            elif not(burn_in) and not((sampler.iteration-burn_in_finished) % step_iteration) and sampler.iteration>=burn_in_finished+step_iteration:
-                tau_emcee=sampler.get_autocorr_time(discard=burn_in_finished,tol=0)
+            elif not(burn_in) and sampler.iteration>=burn_in_finished+step_iteration:
+                tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
                 data_to_test=sampler.get_chain(discard=burn_in_finished)
                 tau_autocorr=[]
                 for value,parameter_data in enumerate(data_to_test.T):
@@ -2356,15 +2359,15 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
                 mean_tau_autocorr.append(tau_autocorr)
                 #estimate in how many iteration we will get to the required indipendent samples
                 estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
-                step_iteration=estimated_final_iteration//10
-                print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {sampler.iteration+step_iteration}',)
+                step_iteration=sampler.iteration+estimated_final_iteration//10-burn_in_finished
+                print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {step_iteration}',)
                 
             
             if not(burn_in) and sampler.iteration>estimated_final_iteration+burn_in_finished:
                 #save the autocorrelation time
                 np.save(filename+'_autocorr.npy',np.mean(mean_tau_autocorr,axis=1))
                 break
-
+        #make a mask for the plot saving step
         unmasked_opt=[]
         normalized_limit_array=np.hstack(normalized_limit_array)
         for x in normalized_limit_array:
@@ -2372,7 +2375,20 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
                 unmasked_opt.append(True)
             else:
                 unmasked_opt.append(False)
-        shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=sampler.iteration//2),axis=0),parameters_main_loop,False,parameters)   
+        #calculate the final results
+        tau_emcee=sampler.get_autocorr_time(tol=0,discard=burn_in_steps)
+        for value,tau in enumerate(tau_emcee):
+            if value<len(tau_autocorr):
+                if tau<tau_autocorr[value]:
+                    tau_emcee[value]=tau_autocorr[value]
+
+            else:
+                if tau<np.mean(tau_autocorr):
+                    tau=np.mean(tau_autocorr)
+        mean_parameters=[np.mean(sampler.get_chain(flat=True,discard=burn_in_steps,thin=int(tau_emcee[x]))[:,x]) for x in range(len(tau_emcee))]
+        number_of_indipedent_samples=[int(sampler.iteration/tau_emcee[x]*nwalkers) for x in range(len(tau_emcee))]
+        shift_temp=shift_maker(mean_parameters,test_parameters,False,parameters) 
+        unc_parameters=[np.std(sampler.get_chain(flat=True,discard=burn_in_steps,thin=int(tau_emcee[x]))[:,x]) for x in range(len(tau_emcee))]  
         spectras.mass_setter(shift=shift_temp)
         
         spectras.synthesize(shift_temp)
@@ -2431,15 +2447,49 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None):
             file_directory += run_name+'_no_prior_'
         fig.savefig(file_directory+str(name)+'_single_fit_comparison.pdf',bbox_inches='tight')
 
-#main_analysis(140209002701392,prior=True,ncpu=4,cluster_name="NGC_2682")
-#get target from target_list.txt
-target_list=np.loadtxt('target_list.txt',dtype=int)
-for target in target_list:
-    main_analysis(target,prior=True,ncpu=32,cluster_name="NGC_2682")
+        #save the date to a astropy table
+        radial_velocities_done=['rv_'+str(x) for x in bands]
+        radial_velocities=[[x] for x in radial_velocities]
+        table=Table(radial_velocities,names=radial_velocities_done)
 
-# top# votable = parse("Ruprecht_147_photometric_cross.xml")
-# # global photometric_data
+        mean_rv=np.mean(radial_velocities)
+        table['rv_mean']=mean_rv
+        table['sobject_id']=np.int64(name)
+        for value,tag in enumerate(test_parameters):
+            if tag in elements:
+                test_parameters[value]+='_Fe'
+            if prior:
+                test_parameters[value]='prior_'+test_parameters[value]
+            else:
+                test_parameters[value]='no_prior_'+test_parameters[value]
+        for value,tag in enumerate(test_parameters):
+
+            table[tag]=[mean_parameters[value]]
+            table[tag+'_unc']=[unc_parameters[value]]
+            table[tag+'_tau']=[tau_emcee[value]]
+            table[tag+'_indipendent_samples']=[number_of_indipedent_samples[value]]
+        table['iterations_total']=sampler.iteration
+        #save table in the same directory as the hdf5 files
+        file_directory = cluster_name+'_reduction_fixed_photometric/tables/'
+        Path(file_directory).mkdir(parents=True, exist_ok=True)
+        if prior:
+            file_directory+= run_name+'_prior_'
+        else:
+            file_directory += run_name+'_no_prior_'
+        table.write(file_directory+str(name)+'.fits',overwrite=True)
+
+        #for 
+# votable = parse("NGC_2682_photometric_cross.xml")
+# global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+# spectras=spectrum_all(140209002701392,cluster=True)
+# main_analysis(140209002701392,prior=True,ncpu=4,cluster_name="NGC_2682",skip=False)
+#get target from target_list.txt
+# target_list=np.loadtxt('target_list.txt',dtype=int)
+# for target in target_list:
+#     main_analysis(target,prior=True,ncpu=32,cluster_name="NGC_2682")
+
+
 
 # spectras=spectrum_all(170830002301172)
 # spectras.synthesize()
