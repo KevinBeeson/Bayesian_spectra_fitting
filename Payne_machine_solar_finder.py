@@ -2163,7 +2163,7 @@ parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_R
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-test_parameters=['teff','logg']
+test_parameters=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Y','Zr','Ba','Nd','Sm','Eu']
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
     # loads the xml file used to store the pre
     if cluster_name==None:
@@ -2198,10 +2198,9 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
         file_directory_table += run_name+'_no_prior_'
     table_name=file_directory_table+str(name)+'.fits'
 
-    if skip:
-        if os.path.exists(table_name):
-                print(f'table has been made  already {table_name}')
-                return
+    if skip and os.path.exists(table_name):
+        print(f'table has been made  already {table_name}')
+        return
     global spectras
     spectras=spectrum_all(name,cluster=True)
     spectras.synthesize()
@@ -2221,33 +2220,39 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
             return
     shift_radial={}
     print('calculating radial velocities')
-    radial_velocities=[]
-    for col in colours:
-        logs=[]
-        if not (np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_rv_ccd'][colours_dict[col]])):
-            mean=float(old_abundances['red_rv_ccd'][colours_dict[col]])
-        elif not( np.isnan(old_abundances['red_rv_com']) or np.ma.is_masked(old_abundances['red_rv_com'])):
-            mean=float(old_abundances['red_rv_com'])
-        else:
-            mean=np.nanmean(photometric_data['red_rv_com'])
-        if not (np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_e_rv_ccd'][colours_dict[col]])):
-            sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
+    if skip and os.path.exists(filename+'_radial_velocities.npy'):
+        print('radial velocities has already been done. Loading radial velocities')
+        radial_velocities=np.load(filename+'_radial_velocities.npy')
+        for col,rv in zip(colours,radial_velocities):
+            shift_radial['vrad_'+col]=rv
+    else:
+        radial_velocities=[]
+        for col in colours:
+            logs=[]
+            if not (np.isnan(old_abundances['red_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_rv_ccd'][colours_dict[col]])):
+                mean=float(old_abundances['red_rv_ccd'][colours_dict[col]])
+            elif not( np.isnan(old_abundances['red_rv_com']) or np.ma.is_masked(old_abundances['red_rv_com'])):
+                mean=float(old_abundances['red_rv_com'])
+            else:
+                mean=np.nanmean(photometric_data['red_rv_com'])
+            if not (np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_e_rv_ccd'][colours_dict[col]])):
+                sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
 
-        elif not (np.isnan(old_abundances['red_e_rv_com']) or np.ma.is_masked(old_abundances['red_e_rv_com'])) :
-            sig=float(old_abundances['red_e_rv_com'])*3
-        else:
-            sig=5
-        num=int(np.ceil(min((sig*6)/0.1,30)))
-        lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
-        lin_vrad_pool=[[x] for x in lin_vrad]
-        # for x in lin_vrad_pool:
-        #     logs.append(log_posterior(x,['vrad_'+col]))
-        with Pool(processes=ncpu) as pool:
-            logs=pool.map(partial(log_posterior,parameters=['vrad_'+col]),lin_vrad_pool)
-        shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
-        radial_velocities.append(lin_vrad[logs.index(max(logs))])
-    np.save(filename+'_radial_velocities',radial_velocities)
-    np.save(filename+'_bands_done',colours)
+            elif not (np.isnan(old_abundances['red_e_rv_com']) or np.ma.is_masked(old_abundances['red_e_rv_com'])) :
+                sig=float(old_abundances['red_e_rv_com'])*3
+            else:
+                sig=5
+            num=int(np.ceil(min((sig*6)/0.1,30)))
+            lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
+            lin_vrad_pool=[[x] for x in lin_vrad]
+            # for x in lin_vrad_pool:
+            #     logs.append(log_posterior(x,['vrad_'+col]))
+            with Pool(processes=ncpu) as pool:
+                logs=pool.map(partial(log_posterior,parameters=['vrad_'+col]),lin_vrad_pool)
+            shift_radial['vrad_'+col]=lin_vrad[logs.index(max(logs))]
+            radial_velocities.append(lin_vrad[logs.index(max(logs))])
+        np.save(filename+'_radial_velocities',radial_velocities)
+        np.save(filename+'_bands_done',colours)
     spectras.mass_setter(shift_radial)
     spectras.synthesize()
     spectras.normalize()
@@ -2256,16 +2261,20 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
         print('mask finding loop has been done already')
         sampler=emcee.backends.HDFBackend(filename+'_mask_finding_loop.h5')
     else:
-        
         filename_mask=filename+'_mask_finding_loop.h5'
         backend = emcee.backends.HDFBackend(filename_mask)
-        if backend.iteration == 0 or not skip:
-            pos_short=starter_walkers_maker(len(test_parameters)*2,old_abundances,test_parameters,cluster=True)
+        if skip:
+            if os.path.exists(filename+'_mask_finding_loop.h5'):
 
-            backend.reset(nwalkers, ndim)
+                print(f'There was a previous run, continuing from {backend.iteration} iteration')
+                pos_short=backend.get_chain()[-1,:,:]
+            else:
+                pos_short=starter_walkers_maker(len(test_parameters)*2,old_abundances,test_parameters,cluster=True)
         else:
-            print(f'There was a previous run, continuing from {backend.iteration} iteration')
-            pos_short=backend.get_chain()[-1,:,:]
+            pos_short=starter_walkers_maker(len(test_parameters)*2,old_abundances,test_parameters,cluster=True)
+            if os.path.exists(filename+'_mask_finding_loop.h5'):
+                backend.reset()
+
         ndim=np.shape(pos_short)[1]
         nwalkers=np.shape(pos_short)[0]
 
@@ -2274,17 +2283,28 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
 
         with Pool(processes=ncpu) as pool:
             sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[test_parameters,prior,parameters])
-            print(sampler.iteration)
-            
-            
-            autocorr=[]
-            oldTau=np.inf
             print('doing first iteration for masks')
             burn_in_steps=40
             #make a ndim x nwalkers array of False values for progress
             burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
             burn_in=True
             burn_in_finished=0
+            if skip and sampler.iteration>burn_in_steps:
+                for step in range(0,sampler.iteration,burn_in_steps):
+                    current_data=sampler.get_chain()[step:step+burn_in_steps,:,:5]
+                    for value, parameter_data in enumerate(current_data.T):
+                        temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
+                        burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
+                    if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
+                        print(f'burn in was completed at {step+burn_in_steps}')
+                        burn_in=False
+                        burn_in_finished=step+burn_in_steps
+                        break
+                
+            
+            autocorr=[]
+            oldTau=np.inf
+
             for sample in sampler.sample(pos_short,iterations=100+10*nwalkers-sampler.iteration, progress=True):
                 #test if parameters have been burn in yet
 
@@ -2336,48 +2356,69 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
     print(parameters_main_loop)
     np.save(filename+'_tags.npy',test_parameters)
     backend = emcee.backends.HDFBackend(filename+'_main_loop.h5')
-    if backend.iteration == 0 or not skip:
-        pos_long=sampler.get_chain()[-1,:,:]
-        backend.reset(nwalkers, ndim)
-    else:
-        print(f'There was a previous run, continuing from {backend.iteration} iteration')
-        pos_long=backend.get_chain()[-1,:,:]
-    nwalkers=np.shape(pos_long)[0]
-    ndim=np.shape(pos_long)[1]
+    indipendent_samples=400
+    print(f'Doing the main fitting loop to get {indipendent_samples} indipendent samples')
+    if skip:
+        if os.path.exists(filename+'_main_loop.h5'):
 
-        
+            print(f'There was a previous run, continuing from {backend.iteration} iteration')
+            pos_long=backend.get_chain()[-1,:,:]
+        else:
+            pos_long=sampler.get_chain()[-1,:,:]
+    else:
+        pos_long=sampler.get_chain()[-1,:,:]
+        if os.path.exists(filename+'_main_loop.h5'):
+            backend.reset()
+    nwalkers=np.shape(pos_long)[0]
+    ndim=np.shape(pos_long)[1] 
     with Pool(processes=ncpu) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
+            
+
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, 
+        log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
+        step_iteration=200
         #check if burn in is complete 
         burn_in_steps=50
         burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
         burn_in=True
+        mean_tau_autocorr=[]
+        max_iteration=40000-sampler.iteration
+        estimated_final_iteration=max_iteration
         if skip and sampler.iteration>burn_in_steps:
             for step in range(0,sampler.iteration,burn_in_steps):
                 current_data=sampler.get_chain()[step:step+burn_in_steps,:,:5]
                 for value, parameter_data in enumerate(current_data.T):
                     temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
                     burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
-            if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
-                print(f'burn in was completed at {sampler.iteration}')
-                burn_in=False
-                burn_in_finished=sampler.iteration
+                if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
+                    print(f'burn in was completed at {step}')
+                    burn_in=False
+                    burn_in_finished=step+burn_in_steps
+                    break
+        if skip and not(burn_in) and sampler.iteration>=burn_in_finished+step_iteration:
+                tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
+                data_to_test=sampler.get_chain(discard=burn_in_finished)
+                tau_autocorr=[]
+                for value,parameter_data in enumerate(data_to_test.T):
+                    tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
+                mean_tau_autocorr.append(tau_autocorr)
+                #estimate in how many iteration we will get to the required indipendent samples
+                estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
+                step_iteration=sampler.iteration+estimated_final_iteration//5-burn_in_finished
+                print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {burn_in_finished+step_iteration}',)
 
 
         
-        step_iteration=200
+        
         autocorr=[]
         oldTau=np.ones(ndim)*np.inf
-        indipendent_samples=500
-        print(f'Doing the main fitting loop to get {indipendent_samples} indipendent samples')
-        burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
-        burn_in=True
-        burn_in_finished=0
-        max_iteration=50000
-        estimated_final_iteration=max_iteration
-        mean_tau_autocorr=[]
+
+
+
+
         
-        for sample in sampler.sample(pos_long,iterations=max_iteration-sampler.iteration, progress=True):
+        
+        for sample in sampler.sample(pos_long,iterations=max_iteration, progress=True):
             if not( sampler.iteration % burn_in_steps) and burn_in and sampler.iteration>0:
                     current_data=sampler.get_chain()[sampler.iteration-burn_in_steps:sampler.iteration,:,:5]
 
@@ -2522,7 +2563,7 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
 # global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
 # spectras=spectrum_all(140209002701392,cluster=True)
-main_analysis(140209002701392,prior=True,ncpu=2,cluster_name="NGC_2682",skip=True)
+main_analysis(160106004101363,prior=False,ncpu=2,cluster_name="NGC_2682",skip=True)
 #get target from target_list.txt
 # def main_loop(start,finished,ncpu=32,cluster_name="NGC_2682",prior=True):
 #     target_list=np.loadtxt('target_list.txt',dtype=int)
