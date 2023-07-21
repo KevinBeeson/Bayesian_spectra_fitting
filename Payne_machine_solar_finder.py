@@ -259,7 +259,15 @@ def prior_2d(shift):
     if spectras.spread_number>0:
         #calculates the kde if hasnt been done
         if spectras.kde==None:
-            spectras.kde=kde.gaussian_kde([old_abundances['teff_raw'],old_abundances['logg_raw']],weights=1/np.sqrt(old_abundances['e_teff_raw']*old_abundances['e_logg_raw']))
+            #first check if the errors are too small
+            teff_errors=[]
+            for x in old_abundances['e_teff_raw']:
+                if x<1e-1:
+                    teff_errors.append(1e-1)
+                else:
+                    teff_errors.append(x)
+            spectras.kde=kde.gaussian_kde([old_abundances['teff_raw'],
+            old_abundances['logg_raw']],weights=1/np.sqrt(teff_errors*old_abundances['e_logg_raw']))
         photometric_probability_density=spectras.kde
         e_teff=spectras.e_teff_photometric
         e_logg=spectras.e_logg_photometric
@@ -2157,24 +2165,14 @@ x_max={x:y for x,y in zip(labels_with_limits,x_max)}
 
 # #EMCEE,
 # prior=False
-np.random.seed(589404)
+# np.random.seed(589404)
 
 parameters=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 parameters_no_elements=['teff','logg','fe_h','vmic','vsini','vrad_Blue','vrad_Green','vrad_Red','vrad_IR']
 parameters_no_vrad=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
 elements=['Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Rb','Sr','Y','Zr','Mo','Ru','Ba','La','Ce','Nd','Sm','Eu']
-test_parameters=['teff','logg','fe_h','vmic','vsini','Li','C','N','O','Na','Mg','Al','Si','K','Ca','Sc','Ti','V','Cr','Mn','Co','Ni','Cu','Zn','Y','Zr','Ba','Nd','Sm','Eu']
+test_parameters=['teff', 'logg', 'fe_h', 'vmic', 'vsini', 'Li', 'C', 'N', 'O', 'Na', 'Mg', 'Al', 'Si', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Co', 'Ni', 'Cu', 'Zn', 'Y', 'Zr', 'Ba', 'Nd', 'Sm', 'Eu']
 def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
-    # loads the xml file used to store the pre
-    if cluster_name==None:
-        votable = parse("open_cluster_photometric_cross.xml")
-        cluster_name='General'
-    elif cluster_name=="individual":
-        votable = parse("all_cross_files/"+str(sobject_id_name)+"_photometric_cross.xml")
-    else:
-        votable = parse(cluster_name+"_photometric_cross.xml")
-    global photometric_data
-    photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
 
 
     name=sobject_id_name
@@ -2197,7 +2195,9 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
     else:
         file_directory_table += run_name+'_no_prior_'
     table_name=file_directory_table+str(name)+'.fits'
-
+    if skip and os.path.exists(filename+'_radial_velocities.npy'):
+        print(f'has been made already {filename} or its being fitted')
+        return
     if skip and os.path.exists(table_name):
         print(f'table has been made  already {table_name}')
         return
@@ -2235,12 +2235,15 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
                 mean=float(old_abundances['red_rv_com'])
             else:
                 mean=np.nanmean(photometric_data['red_rv_com'])
-            if not (np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_e_rv_ccd'][colours_dict[col]])):
+            if not (np.isnan(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or np.ma.is_masked(old_abundances['red_e_rv_ccd'][colours_dict[col]]) or old_abundances['red_e_rv_ccd'][colours_dict[col]]>30):
                 sig=float(old_abundances['red_e_rv_ccd'][colours_dict[col]])*3
 
             elif not (np.isnan(old_abundances['red_e_rv_com']) or np.ma.is_masked(old_abundances['red_e_rv_com'])) :
                 sig=float(old_abundances['red_e_rv_com'])*3
+            
             else:
+                sig=5
+            if sig>100:
                 sig=5
             num=int(np.ceil(min((sig*6)/0.1,30)))
             lin_vrad=np.linspace(mean-sig*3, mean+sig*3,num=num)
@@ -2324,8 +2327,8 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
                         continue
                 if not burn_in and sampler.iteration>burn_in_finished+50:
                     break
-    #creates the mask        
-    shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=sampler.iteration-50),axis=0),test_parameters,False,parameters)   
+    #creates the mask      
+    shift_temp=shift_maker(np.mean(sampler.get_chain(flat=True,discard=max(0,sampler.iteration-50)),axis=0),test_parameters,False,parameters)   
         
     synthetic_spectras=spectras.synthesize(shift_temp,give_back=True)
     normalized_spectra,normalized_uncs=spectras.normalize(data=synthetic_spectras)
@@ -2357,7 +2360,10 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
     np.save(filename+'_tags.npy',test_parameters)
     backend = emcee.backends.HDFBackend(filename+'_main_loop.h5')
     indipendent_samples=400
+    mean_tau_autocorr=[]
+    max_iteration=40000
     print(f'Doing the main fitting loop to get {indipendent_samples} indipendent samples')
+
     if skip:
         if os.path.exists(filename+'_main_loop.h5'):
 
@@ -2371,85 +2377,135 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
             backend.reset()
     nwalkers=np.shape(pos_long)[0]
     ndim=np.shape(pos_long)[1] 
-    with Pool(processes=ncpu) as pool:
-            
+    burn_in_steps=50
+    burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
+    burn_in=True
 
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, 
-        log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
-        step_iteration=200
-        #check if burn in is complete 
-        burn_in_steps=50
-        burn_in_progress=np.zeros((min(ndim,5),nwalkers),dtype=bool)
-        burn_in=True
-        mean_tau_autocorr=[]
-        max_iteration=40000-sampler.iteration
-        estimated_final_iteration=max_iteration
-        if skip and sampler.iteration>burn_in_steps:
-            for step in range(0,sampler.iteration,burn_in_steps):
-                current_data=sampler.get_chain()[step:step+burn_in_steps,:,:5]
+    #if the autocorr file is found we will assume that the fitting was already done and the only thing left to do is to create the plot and the table
+    if os.path.exists(filename+'_autocorr.npy') and skip:
+        print('autocorr file found, skipping the main fitting')
+        tau_autocorr=np.load(filename+'_autocorr.npy')
+        sampler=copy.copy(backend)
+        for step in range(0,backend.iteration,burn_in_steps):
+                current_data=backend.get_chain()[step:step+burn_in_steps,:,:5]
                 for value, parameter_data in enumerate(current_data.T):
                     temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
                     burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
                 if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
-                    print(f'burn in was completed at {step}')
+                    print(f'burn in was completed at {step+burn_in_steps}')
                     burn_in=False
                     burn_in_finished=step+burn_in_steps
                     break
-        if skip and not(burn_in) and sampler.iteration>=burn_in_finished+step_iteration:
-                tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
-                data_to_test=sampler.get_chain(discard=burn_in_finished)
-                tau_autocorr=[]
-                for value,parameter_data in enumerate(data_to_test.T):
-                    tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
-                mean_tau_autocorr.append(tau_autocorr)
-                #estimate in how many iteration we will get to the required indipendent samples
-                estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
-                step_iteration=sampler.iteration+estimated_final_iteration//5-burn_in_finished
-                print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {burn_in_finished+step_iteration}',)
-
-
-        
-        
-        autocorr=[]
-        oldTau=np.ones(ndim)*np.inf
-
-
-
-
-        
-        
-        for sample in sampler.sample(pos_long,iterations=max_iteration, progress=True):
-            if not( sampler.iteration % burn_in_steps) and burn_in and sampler.iteration>0:
-                    current_data=sampler.get_chain()[sampler.iteration-burn_in_steps:sampler.iteration,:,:5]
-
+    elif  os.path.exists(filename+'_main_loop.npy') and skip:
+        if backend.iteration >=max_iteration:
+            print('max iteration reached, skipping main fitting')
+            sampler=copy.copy(backend)
+            for step in range(0,backend.iteration,burn_in_steps):
+                    current_data=backend.get_chain()[step:step+burn_in_steps,:,:5]
                     for value, parameter_data in enumerate(current_data.T):
                         temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
                         burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
-                    print(f'burn in progress has finished for {np.sum(burn_in_progress)} out of {np.prod(np.shape(burn_in_progress))} walkers')
                     if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
-                        print('burn in complete')
+                        print(f'burn in was completed at {step+burn_in_steps}')
                         burn_in=False
-                        burn_in_finished=sampler.iteration
-                        
-                    continue
-            elif not(burn_in) and sampler.iteration>=burn_in_finished+step_iteration:
-                tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
-                data_to_test=sampler.get_chain(discard=burn_in_finished)
-                tau_autocorr=[]
-                for value,parameter_data in enumerate(data_to_test.T):
-                    tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
-                mean_tau_autocorr.append(tau_autocorr)
-                #estimate in how many iteration we will get to the required indipendent samples
-                estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
-                step_iteration=sampler.iteration+estimated_final_iteration//5-burn_in_finished
-                print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {burn_in_finished+step_iteration}',)
-                
+                        burn_in_finished=step+burn_in_steps
+                        break
+            tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
+            data_to_test=sampler.get_chain(discard=burn_in_finished)
+            tau_autocorr=[]
+            for value,parameter_data in enumerate(data_to_test.T):
+                tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
+            mean_tau_autocorr.append(tau_autocorr)
+            #estimate in how many iteration we will get to the required indipendent samples
+            estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
+            step_iteration=sampler.iteration+estimated_final_iteration//5-burn_in_finished
             
-            if not(burn_in) and sampler.iteration>estimated_final_iteration+burn_in_finished:
-                #save the autocorrelation time
-                np.save(filename+'_autocorr.npy',np.mean(mean_tau_autocorr,axis=1))
-                break
-            #make a mask for the plot saving step
+    else:
+        
+        with Pool(processes=ncpu) as pool:
+                
+
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, 
+            log_posterior,pool=pool,backend=backend,args=[parameters_main_loop,prior,parameters,normalized_limit_array])
+            step_iteration=200
+            #check if burn in is complete 
+
+
+            max_iteration-=sampler.iteration
+            estimated_final_iteration=max_iteration
+            #if there is some data already calculates if burnin already occured
+            if skip and sampler.iteration>burn_in_steps:
+                for step in range(0,sampler.iteration,burn_in_steps):
+                    current_data=sampler.get_chain()[step:step+burn_in_steps,:,:5]
+                    for value, parameter_data in enumerate(current_data.T):
+                        temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
+                        burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
+                    if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
+                        print(f'burn in was completed at {step}')
+                        burn_in=False
+                        burn_in_finished=step+burn_in_steps
+                        break
+
+
+
+
+            #calculates autocorr if burn in is complete from the previous run
+            if skip and not(burn_in) and sampler.iteration>=burn_in_finished+step_iteration:
+                    tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
+                    data_to_test=sampler.get_chain(discard=burn_in_finished)
+                    tau_autocorr=[]
+                    for value,parameter_data in enumerate(data_to_test.T):
+                        tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
+                    mean_tau_autocorr.append(tau_autocorr)
+                    #estimate in how many iteration we will get to the required indipendent samples
+                    estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
+                    step_iteration=sampler.iteration+estimated_final_iteration//5-burn_in_finished
+                    print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {burn_in_finished+step_iteration}',)
+
+
+            
+            
+            autocorr=[]
+            oldTau=np.ones(ndim)*np.inf
+
+
+
+
+            
+            
+            for sample in sampler.sample(pos_long,iterations=max_iteration, progress=True):
+                if not( sampler.iteration % burn_in_steps) and burn_in and sampler.iteration>0:
+                        current_data=sampler.get_chain()[sampler.iteration-burn_in_steps:sampler.iteration,:,:5]
+
+                        for value, parameter_data in enumerate(current_data.T):
+                            temp_burn_in_progress=[burn_in_test(x) for x in parameter_data]
+                            burn_in_progress[value]=np.logical_or(burn_in_progress[value],temp_burn_in_progress)
+                        print(f'burn in progress has finished for {np.sum(burn_in_progress)} out of {np.prod(np.shape(burn_in_progress))} walkers')
+                        if np.sum(burn_in_progress)>np.prod(np.shape(burn_in_progress))*0.9:
+                            print('burn in complete')
+                            burn_in=False
+                            burn_in_finished=sampler.iteration
+                            
+                        continue
+                elif not(burn_in) and sampler.iteration>=burn_in_finished+step_iteration:
+                    tau_emcee=emcee.autocorr.integrated_time(sampler.get_chain(discard=burn_in_finished)[:,:,:5],tol=0)
+                    data_to_test=sampler.get_chain(discard=burn_in_finished)
+                    tau_autocorr=[]
+                    for value,parameter_data in enumerate(data_to_test.T):
+                        tau_autocorr.append(autocorr_ml(parameter_data,tau_emcee=tau_emcee[0]))
+                    mean_tau_autocorr.append(tau_autocorr)
+                    #estimate in how many iteration we will get to the required indipendent samples
+                    estimated_final_iteration=int(indipendent_samples*np.mean(mean_tau_autocorr)/nwalkers)
+                    step_iteration=sampler.iteration+estimated_final_iteration//5-burn_in_finished
+                    print(f'estimated final iteration {estimated_final_iteration+burn_in_finished}. Will check the autocorrelation again at {burn_in_finished+step_iteration}',)
+                    
+                
+                if not(burn_in) and sampler.iteration>estimated_final_iteration+burn_in_finished:
+                    #save the autocorrelation time
+
+                    break
+                #make a mask for the plot saving step
+        np.save(filename+'_autocorr.npy',np.mean(mean_tau_autocorr,axis=1))
     unmasked_opt=[]
     normalized_limit_array=np.hstack(normalized_limit_array)
     for x in normalized_limit_array:
@@ -2501,11 +2557,12 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
             '[Fe/H]='+str(np.round(shift_temp['fe_h'],decimals=2))+', '+ \
             'vmic='+str(np.round(shift_temp['vmic'],decimals=2))+'km/s, '+ \
             'vsini='+str(np.round(shift_temp['vsini'],decimals=1))+'km/s'
-    
-    info_line_3='rv Blue='+ str(np.round(shift_radial['vrad_Blue'],decimals=2))+'km/s, ' +\
-            'rv Green='+ str(np.round(shift_radial['vrad_Green'],decimals=2))+'km/s, ' +\
-            'rv Red='+ str(np.round(shift_radial['vrad_Red'],decimals=2))+'km/s, ' +\
-            'rv IR='+ str(np.round(shift_radial['vrad_IR'],decimals=2))+'km/s'
+    info_line_3=['rv ' + str(x) + '=' + str(np.round(shift_temp['vrad_'+str(x)],decimals=2))+'km/s' for x in bands]
+    info_line_3=', '.join(info_line_3)
+    # info_line_3='rv Blue='+ str(np.round(shift_radial['vrad_Blue'],decimals=2))+'km/s, ' +\
+    #         'rv Green='+ str(np.round(shift_radial['vrad_Green'],decimals=2))+'km/s, ' +\
+    #         'rv Red='+ str(np.round(shift_radial['vrad_Red'],decimals=2))+'km/s, ' +\
+    #         'rv IR='+ str(np.round(shift_radial['vrad_IR'],decimals=2))+'km/s'
     print('creating and saving a figure')
     fig=plot_spectrum(
         wave,
@@ -2538,32 +2595,49 @@ def main_analysis(sobject_id_name,prior,ncpu=1,cluster_name=None,skip=True):
     mean_rv=np.mean(radial_velocities)
     table['rv_mean']=mean_rv
     table['sobject_id']=np.int64(name)
-    parameters_to_save=np.copy(test_parameters)
+    table['burn_in_time']=burn_in_finished
+    parameters_to_save=copy.copy(test_parameters)
     for value,tag in enumerate(parameters_to_save):
         if tag in elements:
             parameters_to_save[value]+='_Fe'
-        if prior:
-            parameters_to_save[value]='prior_'+parameters_to_save[value]
-        else:
-            parameters_to_save[value]='no_prior_'+parameters_to_save[value]
     for value,tag in enumerate(parameters_to_save):
 
         table[tag]=[mean_parameters[value]]
-        table[tag+'_unc']=[unc_parameters[value]]
+        table['e_'+tag]=[unc_parameters[value]]
         table[tag+'_tau']=[tau_emcee[value]]
         table[tag+'_indipendent_samples']=[number_of_indipedent_samples[value]]
     table['iterations_total']=sampler.iteration
+    table['prior']=prior
     #save table in the same directory as the hdf5 files
 
     table.write(table_name,overwrite=True)
 
 
         #for 
+cluster_name='NGC_2682'
+if cluster_name==None:
+    votable = parse("open_cluster_photometric_cross.xml")
+    cluster_name='General'
+elif cluster_name=="individual":
+    votable = parse("all_cross_files/"+str(sobject_id_name)+"_photometric_cross.xml")
+else:
+    votable = parse(cluster_name+"_photometric_cross.xml")
+global photometric_data
+photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
+# sobject_id_to_do=np.array(photometric_data['sobject_id'])
+# #randomize the order of the targets
+# np.random.shuffle(sobject_id_to_do)
+# for target in sobject_id_to_do:
+#      main_analysis(target,prior=False,ncpu=30,cluster_name="NGC_2682",skip=True)
+spectras=spectrum_all(160106004101293)
+old_abundances=spectras.old_abundances
+prior_2d({'teff':6327,'logg':4.0})
+main_analysis(160106004101293,prior=True,ncpu=4,cluster_name=cluster_name,skip=True)
 # votable = parse("NGC_2682_photometric_cross.xml")
 # global photometric_data
 # photometric_data=votable.get_first_table().to_table(use_names_over_ids=True)
 # spectras=spectrum_all(140209002701392,cluster=True)
-main_analysis(160106004101363,prior=False,ncpu=2,cluster_name="NGC_2682",skip=True)
+#main_analysis(160106004101313,prior=False,ncpu=2,cluster_name="NGC_2682",skip=True)
 #get target from target_list.txt
 # def main_loop(start,finished,ncpu=32,cluster_name="NGC_2682",prior=True):
 #     target_list=np.loadtxt('target_list.txt',dtype=int)
